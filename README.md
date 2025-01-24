@@ -19,15 +19,30 @@ Our project is a stock option dashboard that provides authentication, paper trad
 ## How to Run
 &lt;Instructions for how to run your project. Include the URI to your project at the top if applicable.&gt;
 
-1. Run the frontend:
--- cd frontend
--- npm install
--- npm run dev
+### 1. Run the frontend:
 
-2. Run the backend:
--- cd backend
--- python -m venv venv
--- venv\Scripts\activate
--- pip install -r requirements.txt
--- uvicorn main:app --reload
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
+### 2. Run the backend:
+```bash
+cd backend
+
+# Create a virtual environment
+python -m venv venv
+
+# Activate the virtual environment (Windows)
+venv\Scripts\activate
+
+# Activate the virtual environment (macOS/Linux)
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the FastAPI server
+uvicorn main:app --reload
+```
