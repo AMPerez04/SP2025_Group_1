@@ -1,6 +1,6 @@
 ---
 name: "User Story"
-about: ""
+about: "Create a user story for a new feature or fix."
 title: "[COMPONENT] - [FEATURE]"
 labels: ""
 assignees: ""
