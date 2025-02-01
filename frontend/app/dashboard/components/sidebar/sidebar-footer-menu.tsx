@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { CaretSortIcon } from "@radix-ui/react-icons";
 import { LogOut, Settings, Lightbulb } from "lucide-react";
 import initials from "initials";

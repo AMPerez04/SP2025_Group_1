@@ -41,6 +41,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9.19.0",
     "eslint-config-next": "^15.1.6",
+    "eslint-plugin-next": "^0.0.0",
     "eslint-plugin-react": "^7.37.4",
     "globals": "^15.14.0",
     "postcss": "^8",
