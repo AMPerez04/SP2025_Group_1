@@ -12,6 +12,7 @@ import {
 import { useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+import { addToWatchlist } from "@/app/utils/api";
 
 interface Asset {
   ticker: string;
@@ -22,17 +23,24 @@ interface Asset {
   country_flag: string;
 }
 
-export function SearchBar() {
+export function SearchBar({
+  setWatchlist,
+}: {
+  setWatchlist: React.Dispatch<
+    React.SetStateAction<{ Ticker: string; FullName: string; Icon: string }[]>
+  >;
+}) {
   const [commandOpen, setCommandOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [assets, setAssets] = useState<Asset[]>([]);
   const { state } = useSidebar();
+  const userID = "USER2_watchlist_testing"; // TODO: replace with real user ID when auth is implemented
 
   // autocomplete search results
   useEffect(() => {
     if (searchQuery.length < 1) return;
 
-    const fetchAssets = async () => {
+    const getAssets = async () => {
       try {
         const response = await fetch(
           `http://127.0.0.1:8000/search?query=${searchQuery}`
@@ -40,14 +48,14 @@ export function SearchBar() {
         const data = await response.json();
         setAssets(data);
       } catch (error) {
-        console.error("Error fetching assets:", error);
+        console.error("ERROR: Unable to fetch assets:", error);
       }
     };
 
-    // Debounce the API request
+    // debounce API requests
     const debounceTimer = setTimeout(() => {
-      fetchAssets();
-    }, 100); // Adjust the delay as needed
+      getAssets();
+    }, 100);
 
     return () => clearTimeout(debounceTimer);
   }, [searchQuery]);
@@ -91,13 +99,24 @@ export function SearchBar() {
           onValueChange={setSearchQuery}
         />
         <CommandList className="min-h-[300px]">
-          {assets.length === 0 ? (
+          {assets.length === 0 && searchQuery.length > 0 ? (
             <CommandEmpty>No results found.</CommandEmpty>
           ) : (
             <CommandGroup heading="Securities">
               {assets.slice(0, 100).map((asset: Asset) => (
                 <CommandItem key={asset.ticker} className="p-2">
-                  <div className="grid grid-cols-6 gap-4 items-center">
+                  <div
+                    className="grid grid-cols-6 gap-4 items-center"
+                    onClick={() =>
+                      addToWatchlist(
+                        userID,
+                        asset.ticker,
+                        asset.full_name,
+                        asset.icon,
+                        setWatchlist
+                      )
+                    }
+                  >
                     {/* asset's icon & ticker */}
                     <div className="flex items-center justify-start">
                       <Image
@@ -105,7 +124,7 @@ export function SearchBar() {
                         alt={asset.ticker}
                         width={28}
                         height={28}
-                        className="rounded-full bg-black object-contain p-[3.5px]"
+                        className="rounded-full bg-black object-contain p-[3.2px]"
                       />
                       <span className="ml-3 font-medium">{asset.ticker}</span>
                     </div>
