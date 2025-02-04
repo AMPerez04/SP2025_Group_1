@@ -12,16 +12,7 @@ import {
 import { useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
-import { addToWatchlist } from "@/app/utils/api";
-
-interface Asset {
-  ticker: string;
-  icon: string;
-  full_name: string;
-  market: string;
-  country: string;
-  country_flag: string;
-}
+import { Asset, getAssets, addToWatchlist } from "@/app/utils/api";
 
 export function SearchBar({
   setWatchlist,
@@ -38,23 +29,8 @@ export function SearchBar({
 
   // autocomplete search results
   useEffect(() => {
-    if (searchQuery.length < 1) return;
-
-    const getAssets = async () => {
-      try {
-        const response = await fetch(
-          `http://127.0.0.1:8000/search?query=${searchQuery}`
-        );
-        const data = await response.json();
-        setAssets(data);
-      } catch (error) {
-        console.error("ERROR: Unable to fetch assets:", error);
-      }
-    };
-
-    // debounce API requests
     const debounceTimer = setTimeout(() => {
-      getAssets();
+      getAssets(searchQuery, setAssets);
     }, 100);
 
     return () => clearTimeout(debounceTimer);
