@@ -26,11 +26,9 @@ jobs:
         run: |
           cd backend
           python -m venv venv
-          source venv/bin/activate
-          pip install -r requirements.txt
+          venv/bin/pip install -r requirements.txt
 
       - name: Run Ruff
         run: |
           cd backend
-          source venv/bin/activate
-          ruff check .
+          venv/bin/ruff check .
