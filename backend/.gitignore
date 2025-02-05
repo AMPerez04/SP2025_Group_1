@@ -57,3 +57,6 @@ htmlcov/
 # vscode
 .vscode/* 
 .vscode/**/*
+
+#ruff
+.ruff_cache
