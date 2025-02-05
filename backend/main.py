@@ -90,6 +90,7 @@ async def get_assets(query: str = Query(None, min_length=1)):
                 for result in search_results if result.get("typeDisp") == "Equity"
             ]
         except Exception as e:
+            print(e)
             raise HTTPException(status_code=404, detail="Asset not found")
 
     cache[query] = {

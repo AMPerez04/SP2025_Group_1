@@ -7,6 +7,35 @@ export const api = axios.create({
   baseURL: API_BASE_URL,
 });
 
+export interface Asset {
+  ticker: string;
+  icon: string;
+  full_name: string;
+  market: string;
+  country: string;
+  country_flag: string;
+}
+
+// gets all assets matching search query
+export const getAssets = async (
+  searchQuery: string,
+  setAssets: React.Dispatch<React.SetStateAction<Asset[]>>
+) => {
+  if (searchQuery.length < 1) return;
+
+  try {
+    const response = await fetch(
+      `http://127.0.0.1:8000/search?query=${searchQuery}`
+    );
+    const data = await response.json();
+    setAssets(data);
+  } catch (error) {
+    console.error("ERROR: Unable to fetch assets:", error);
+    setAssets([]); // Reset to empty on error
+  }
+};
+
+// gets user's watchlist
 export const getWatchList = async (userID: string) => {
   try {
     const response = await fetch(`http://127.0.0.1:8000/watchlist/${userID}`);
@@ -18,6 +47,7 @@ export const getWatchList = async (userID: string) => {
   }
 };
 
+// adds asset to user's watchlist
 export const addToWatchlist = async (
   userID: string,
   ticker: string,
@@ -49,6 +79,7 @@ export const addToWatchlist = async (
   }
 };
 
+// removes asset from user's watchlist
 export const removeFromWatchlist = async (
   userID: string,
   ticker: string,
