@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pymongo import MongoClient
@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from typing import Optional
 import os
 import time
+import yfinance as yf
 
 load_dotenv()
 
@@ -73,6 +74,23 @@ async def get_assets(query: str = Query(None, min_length=1)):
         }
         for asset in assets_cursor
     ]
+    if not assets_list:
+        # Fetch data from yfinance if not found in the database
+        try:
+            search_results = yf.Search(query).quotes
+            assets_list = [
+                {
+                    "ticker": result.get("symbol", ""),
+                    "icon": "",  # yfinance does not provide an icon URL
+                    "full_name": result.get("shortname", ""),
+                    "market": result.get("exchange", ""),
+                    "country": result.get("country", ""),
+                    "country_flag": "",  # You might need to map country to flag URL
+                }
+                for result in search_results if result.get("typeDisp") == "Equity"
+            ]
+        except Exception as e:
+            raise HTTPException(status_code=404, detail="Asset not found")
 
     cache[query] = {
         "data": assets_list,

@@ -46,9 +46,14 @@ build/
 
 # Jupyter notebooks
 .ipynb_checkpoints
+*.ipynb
 
 # Coverage reports
 htmlcov/
 .coverage
 *.cover
 *.pycover
+
+# vscode
+.vscode/* 
+.vscode/**/*
