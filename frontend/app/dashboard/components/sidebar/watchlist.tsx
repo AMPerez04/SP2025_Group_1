@@ -13,14 +13,23 @@ import {
 import { useStore } from "@/zustand/store";
 
 export default function SidebarItems() {
-  const { watchlist, removeFromWatchlist } = useStore((state) => state);
+  const { watchlist, removeFromWatchlist, setSelectedAsset, selectedAsset } =
+    useStore((state) => state);
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
       <SidebarGroupLabel>Watchlist</SidebarGroupLabel>
       <SidebarMenu>
         {watchlist.map((item) => (
           <SidebarMenuItem key={item.Ticker}>
-            <SidebarMenuButton asChild>
+            <SidebarMenuButton
+              asChild
+              onClick={() => setSelectedAsset(item.Ticker)}
+              className={
+                selectedAsset === item.Ticker
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : ""
+              }
+            >
               <a>
                 <BadgeDollarSign />
                 <span>{item.Ticker}</span>

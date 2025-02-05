@@ -42,11 +42,14 @@ interface Store {
   assets: Asset[];
   getAssets: (searchQuery: string) => Promise<void>;
   setAssets: (newAssets: Asset[]) => void;
+
+  selectedAsset: string;
+  setSelectedAsset: (asset: string) => void;
 }
 
 export const useStore = create<Store>((set, get) => ({
   user: {
-    ID: "67a2e5cc7d35e6dfd35f3b19",
+    ID: "67a2e2ca7d35e6dfd35f3b17",
     email: "jd@wustl.edu",
     avatar: "",
     name: "John Doe",
@@ -54,13 +57,27 @@ export const useStore = create<Store>((set, get) => ({
   setUser: (newUser) => set({ user: newUser }),
 
   watchlist: [],
-  setWatchlist: (newWatchlist) => set({ watchlist: newWatchlist }),
+  setWatchlist: (newWatchlist) => {
+    set({ watchlist: newWatchlist });
+
+    // if no asset currently selected --> select 1st asset in the watchlist
+    if (!get().selectedAsset && newWatchlist.length > 0) {
+      set({ selectedAsset: newWatchlist[0].Ticker });
+    }
+  },
   // gets user's watchlist
   getWatchList: async (ID) => {
     try {
       const response = await fetch(`http://127.0.0.1:8000/watchlist/${ID}`);
       const data = await response.json();
-      set({ watchlist: data.Tickers || [] });
+      const tickers = data.Tickers || [];
+
+      set({ watchlist: tickers });
+
+      // if no asset currently selected --> select 1st asset in the watchlist
+      if (!get().selectedAsset && tickers.length > 0) {
+        set({ selectedAsset: tickers[0].Ticker });
+      }
     } catch (error) {
       console.error("ERROR: Unable to get watchlist:", error);
       set({ watchlist: [] }); // if error --> display an empty watchlist
@@ -101,6 +118,11 @@ export const useStore = create<Store>((set, get) => ({
 
       if (data.success) {
         await get().getWatchList(ID);
+
+        // if removed asset was selected --> select 1st asset in the watchlist
+        if (get().selectedAsset === ticker) {
+          set({ selectedAsset: get()?.watchlist[0]?.Ticker || "" });
+        }
       }
     } catch (error) {
       console.error("ERROR: Unable to remove from watchlist:", error);
@@ -123,4 +145,7 @@ export const useStore = create<Store>((set, get) => ({
       set({ assets: [] }); // if error --> display no search results
     }
   },
+
+  selectedAsset: get()?.watchlist[0]?.Ticker || "",
+  setSelectedAsset: (ticker) => set({ selectedAsset: ticker }),
 }));
