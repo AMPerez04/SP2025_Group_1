@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 
 import "./globals.css";
+// import { StyledEngineProvider } from "@mui/material/styles";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,7 +19,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
+      {/* <StyledEngineProvider injectFirst> */}
       <body className={`${inter.className} min-h-screen`}>{children}</body>
+      {/* </StyledEngineProvider> */}
     </html>
   );
 }
