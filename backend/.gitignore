@@ -60,3 +60,10 @@ htmlcov/
 
 #ruff
 .ruff_cache
+
+#any and all .DS_Store files
+.DS_Store
+/.DS_Store
+
+#stock_dashboard.assets.json
+stock_dashboard.assets.json
