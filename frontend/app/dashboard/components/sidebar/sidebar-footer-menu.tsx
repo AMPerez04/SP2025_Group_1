@@ -4,7 +4,6 @@ import React from "react";
 import { CaretSortIcon } from "@radix-ui/react-icons";
 import { LogOut, Settings, Lightbulb } from "lucide-react";
 import initials from "initials";
-
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -21,17 +20,11 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useStore } from "@/zustand/store";
 
-export default function SidebarFooterMenu({
-  user,
-}: {
-  readonly user: {
-    name: string;
-    email: string;
-    avatar: string;
-  };
-}) {
+export default function SidebarFooterMenu() {
   const { isMobile } = useSidebar();
+  const { user } = useStore();
 
   return (
     <SidebarMenu>

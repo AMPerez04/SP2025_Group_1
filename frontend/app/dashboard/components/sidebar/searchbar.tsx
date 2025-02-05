@@ -12,29 +12,25 @@ import {
 import { useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
-import { Asset, getAssets, addToWatchlist } from "@/app/utils/api";
+import { useStore } from "@/zustand/store";
 
-export function SearchBar({
-  setWatchlist,
-}: {
-  setWatchlist: React.Dispatch<
-    React.SetStateAction<{ Ticker: string; FullName: string; Icon: string }[]>
-  >;
-}) {
+export function SearchBar() {
   const [commandOpen, setCommandOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [assets, setAssets] = useState<Asset[]>([]);
   const { state } = useSidebar();
-  const userID = "USER2_watchlist_testing"; // TODO: replace with real user ID when auth is implemented
+  const { assets, addToWatchlist, getAssets } = useStore((state) => state);
 
   // autocomplete search results
   useEffect(() => {
+    if (searchQuery.length < 1) return;
+
+    // debounce API requests
     const debounceTimer = setTimeout(() => {
-      getAssets(searchQuery, setAssets);
-    }, 100);
+      getAssets(searchQuery);
+    }, 300);
 
     return () => clearTimeout(debounceTimer);
-  }, [searchQuery]);
+  }, [searchQuery, getAssets]);
 
   // search keybind (cmd + k, ctrl + k)
   useEffect(() => {
@@ -79,18 +75,12 @@ export function SearchBar({
             <CommandEmpty>No results found.</CommandEmpty>
           ) : (
             <CommandGroup heading="Securities">
-              {assets.slice(0, 100).map((asset: Asset) => (
+              {assets.slice(0, 100).map((asset) => (
                 <CommandItem key={asset.ticker} className="p-2">
                   <div
                     className="grid grid-cols-6 gap-4 items-center"
                     onClick={() =>
-                      addToWatchlist(
-                        userID,
-                        asset.ticker,
-                        asset.full_name,
-                        asset.icon,
-                        setWatchlist
-                      )
+                      addToWatchlist(asset.ticker, asset.full_name, asset.icon)
                     }
                   >
                     {/* asset's icon & ticker */}

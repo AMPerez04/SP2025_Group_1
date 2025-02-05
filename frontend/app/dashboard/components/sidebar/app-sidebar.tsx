@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useEffect } from "react";
 import { Product } from "@/app/dashboard/components/sidebar/product";
 import {
   Sidebar,
@@ -9,34 +10,18 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar";
-
 import SidebarFooterMenu from "./sidebar-footer-menu";
 import SidebarItems from "./watchlist";
 import { SearchBar } from "./searchbar";
-import { useState, useEffect } from "react";
-import { getWatchList } from "@/app/utils/api";
-
-// hard-coded data TODO: replace w/ API fetch
-const user = {
-  name: "John Doe",
-  email: "jd@wustl.edu",
-  avatar: "", // image URL (optional) | default avatar: user's initials
-  id: "USER2_watchlist_testing",
-};
+import { useStore } from "@/zustand/store";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const [watchlist, setWatchlist] = useState<
-    { Ticker: string; FullName: string; Icon: string }[]
-  >([]);
+  const { getWatchList, user } = useStore((state) => state);
 
   // initial fetch of watchlist
   useEffect(() => {
-    const fetchWatchlist = async () => {
-      const data = await getWatchList(user.id);
-      setWatchlist(data);
-    };
-    fetchWatchlist();
-  }, []);
+    getWatchList(user.ID);
+  }, [getWatchList, user.ID]);
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -46,17 +31,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         {/* search bar */}
-        <SearchBar setWatchlist={setWatchlist} />
+        <SearchBar />
         {/* watchlist */}
-        <SidebarItems
-          watchlist={watchlist}
-          setWatchlist={setWatchlist}
-          userID={user.id}
-        />
+        <SidebarItems />
       </SidebarContent>
       <SidebarFooter>
         {/* user account */}
-        <SidebarFooterMenu user={user} />
+        <SidebarFooterMenu />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

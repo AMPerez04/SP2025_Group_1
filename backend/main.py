@@ -2,6 +2,7 @@ from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pymongo import MongoClient
+from bson import ObjectId
 from dotenv import load_dotenv
 from typing import Optional
 import os
@@ -118,7 +119,7 @@ class WatchlistTicker(BaseModel):
 class WatchlistRequest(BaseModel):
     """watchlist request takes in a UserID, Ticker to add/remove, and the full name + icon src URL"""
 
-    UserID: str
+    ID: str
     Ticker: str
     FullName: Optional[str] = None  # optional for remove requests
     Icon: Optional[str] = None  # optional for remove requests
@@ -128,26 +129,29 @@ class WatchlistResponse(BaseModel):
     """watchlist response outputs list of tickers (watchlist) associated with the UserID"""
 
     UserID: str
+    """ watchlist response outputs list of tickers (watchlist) associated with the UserID"""
     Tickers: list[WatchlistTicker]
 
 
-@app.get("/watchlist/{UserID}", response_model=WatchlistResponse)
-def get_watchlist(UserID: str):
+@app.get("/watchlist/{ID}", response_model=WatchlistResponse)
+def get_watchlist(ID: str):
     """returns watchlist associated with UserID"""
 
-    watchlist = watchlists.find_one({"UserID": UserID})
+    mongo_id = ObjectId(ID)
+    watchlist = watchlists.find_one({"_id": mongo_id})
 
     if watchlist:
-        return {"UserID": UserID, "Tickers": watchlist["Tickers"]}
+        return {"Tickers": watchlist["Tickers"]}
 
-    return {"UserID": UserID, "Tickers": []}
+    return {"Tickers": []}
 
 
 @app.post("/watchlist/add", response_model=WatchlistResponse)
 async def add_to_watchlist(request: WatchlistRequest):
     """adds requested ticker to user's watchlist"""
 
-    watchlist = watchlists.find_one({"UserID": request.UserID})
+    mongo_id = ObjectId(request.ID)
+    watchlist = watchlists.find_one({"_id": mongo_id})
 
     ticker_details = {
         "Ticker": request.Ticker,
@@ -165,22 +169,23 @@ async def add_to_watchlist(request: WatchlistRequest):
             ticker["Ticker"] == request.Ticker for ticker in watchlist["Tickers"]
         ):
             watchlists.update_one(
-                {"UserID": request.UserID},
+                {"_id": mongo_id},
                 {"$push": {"Tickers": ticker_details}},
             )
     else:
-        watchlists.insert_one({"UserID": request.UserID, "Tickers": [ticker_details]})
-    return get_watchlist(request.UserID)
+        watchlists.insert_one({"_id": mongo_id, "Tickers": [ticker_details]})
+    
+    return get_watchlist(request.ID)
 
 
 @app.post("/watchlist/remove")
 async def remove_from_watchlist(request: WatchlistRequest):
     """removes requested ticker from user's watchlist"""
     try:
-        userID = request.UserID
+        mongo_id = ObjectId(request.ID)
         ticker = request.Ticker
 
-        watchlist_collection = watchlists.find_one({"UserID": request.UserID})
+        watchlist_collection = watchlists.find_one({"_id": mongo_id})
 
         # check if ticker is in user's watchlist
         ticker_exists = any(
@@ -189,6 +194,8 @@ async def remove_from_watchlist(request: WatchlistRequest):
         if ticker_exists:
             watchlists.update_one(
                 {"UserID": userID}, {"$pull": {"Tickers": {"Ticker": ticker}}}
+                {"_id": mongo_id},
+                {"$pull": {"Tickers": {"Ticker": ticker}}}
             )
 
         return {"success": True}
