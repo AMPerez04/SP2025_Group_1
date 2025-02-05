@@ -3,46 +3,46 @@ name: Lint Python Code
 on:
   push:
     branches:
-      - main
-      - 'feature/**'
+    - main
+    - 'feature/**'
   pull_request:
     branches:
-      - main
+    - main
 
 jobs:
   lint:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
 
-      - name: Install dependencies
-        run: |
-          cd backend
-          python -m venv venv
-          source venv/bin/activate
-          pip install -r requirements.txt
+    - name: Install dependencies
+      run: |
+        cd backend
+        python -m venv venv
+        source venv/bin/activate
+        pip install -r requirements.txt
 
-      - name: Run pylint
-        run: |
-          cd backend
-          source venv/bin/activate
-          pylint --exit-zero --rcfile=backend/.pylintrc backend/**/*.py
+    - name: Run pylint
+      run: |
+        cd backend
+        source venv/bin/activate
+        pylint --exit-zero --rcfile=backend/.pylintrc backend/**/*.py
 
-      - name: Check pylint score
-        run: |
-          cd backend
-          source venv/bin/activate
-          pylint backend/**/*.py | tee pylint-report.txt
-          score=$(tail -n 2 pylint-report.txt | head -n 1 | awk '{print $7}')
-          echo "Pylint score: $score"
-          if (( $(echo "$score < 8.0" | bc -l) )); then
-            echo "Pylint score is below 8.0. Failing the job."
-            exit 1
-          fi
+    - name: Check pylint score
+      run: |
+        cd backend
+        source venv/bin/activate
+        pylint backend/**/*.py | tee pylint-report.txt
+        score=$(tail -n 2 pylint-report.txt | head -n 1 | awk '{print $7}')
+        echo "Pylint score: $score"
+        if (( $(echo "$score < 8.0" | bc -l) )); then
+          echo "Pylint score is below 8.0. Failing the job."
+          exit 1
+        fi

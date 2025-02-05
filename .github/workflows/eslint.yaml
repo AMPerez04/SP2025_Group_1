@@ -1,15 +1,28 @@
 name: eslint
-on: push
+
+on:
+  push:
+    branches:
+    - main
+    - 'feature/**'
+  pull_request:
+    branches:
+    - main
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout code
+      uses: actions/checkout@v2
+
     - name: Install modules
       run: |
-      cd frontend
-      npm install
+        cd frontend
+        npm install
+
     - name: Run ESLint
       run: |
-      cd frontend
-      eslint . --ext .js,.jsx,.ts,.tsx
+        cd frontend
+        npx eslint . --ext .js,.jsx,.ts,.tsx
