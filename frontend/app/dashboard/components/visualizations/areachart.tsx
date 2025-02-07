@@ -29,30 +29,30 @@ const AreaChart: React.FC = () => {
       return;
     }
     const intradayIntervals = ["1m", "5m", "15m", "30m", "1h"];
-    const tickMarkFormatter = (time: number, tickMarkType: any) => {
-      const date = new Date(time * 1000); // Convert UNIX timestamp to Date
-      if (selectedPeriod === '1d') {
-        return date.toLocaleString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true, // Convert to 12-hour format
-        });
-      } else if (selectedPeriod === '5d') {
-        return date.toLocaleDateString('en-US', {
-          weekday: 'short', // Display short weekday name
-        });
-      } else if (['1mo', '3mo', '6mo', '1y', 'ytd'].includes(selectedPeriod)) {
-        return date.toLocaleDateString('en-US', {
-          month: 'short', // Display short month name
-          day: 'numeric', // Display day of the month
-        });
-      } else if (['2y', '5y', '10y', 'max'].includes(selectedPeriod)) {
-        return date.toLocaleDateString('en-US', {
-          year: 'numeric', // Display full year
-        });
-      }
-      return date.toLocaleDateString('en-US');
-    };
+    // const tickMarkFormatter = (time: number, tickMarkType: any) => {
+    //   const date = new Date(time * 1000); // Convert UNIX timestamp to Date
+    //   if (selectedPeriod === '1d') {
+    //     return date.toLocaleString('en-US', {
+    //       hour: 'numeric',
+    //       minute: '2-digit',
+    //       hour12: true, // Convert to 12-hour format
+    //     });
+    //   } else if (selectedPeriod === '5d') {
+    //     return date.toLocaleDateString('en-US', {
+    //       weekday: 'short', // Display short weekday name
+    //     });
+    //   } else if (['1mo', '3mo', '6mo', '1y', 'ytd'].includes(selectedPeriod)) {
+    //     return date.toLocaleDateString('en-US', {
+    //       month: 'short', // Display short month name
+    //       day: 'numeric', // Display day of the month
+    //     });
+    //   } else if (['2y', '5y', '10y', 'max'].includes(selectedPeriod)) {
+    //     return date.toLocaleDateString('en-US', {
+    //       year: 'numeric', // Display full year
+    //     });
+    //   }
+    //   return date.toLocaleDateString('en-US');
+    // };
     const chart = createChart(chartContainerRef.current, {
       width: chartContainerRef.current.clientWidth,
       height: 400,
@@ -89,7 +89,7 @@ const AreaChart: React.FC = () => {
     if (selectedAsset && financialData[selectedAsset]) {
       console.log('Data for Selected Asset:', financialData[selectedAsset]);
 
-      const assetData = financialData[selectedAsset];
+      // const assetData = financialData[selectedAsset];
 
       const data: AreaData[] = financialData[selectedAsset] || [];
       console.log('Formatted Data:', data);
@@ -110,7 +110,7 @@ const AreaChart: React.FC = () => {
     return () => {
       chart.remove();
     };
-  }, [financialData, selectedAsset]);
+  }, [financialData, selectedAsset,selectedInterval]);
 
   return <div ref={chartContainerRef} style={{ width: '100%', height: '400px', margin: '0 auto' }} />;
 };

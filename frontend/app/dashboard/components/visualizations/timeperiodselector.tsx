@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useStore } from '../../../../zustand/store';
 import { cn } from "@/lib/utils"; // Assuming you have a cn utility
 
@@ -9,7 +9,7 @@ const TimePeriodSelector: React.FC = () => {
   const selectedInterval = useStore((state) => state.selectedInterval);
   const setSelectedInterval = useStore((state) => state.setSelectedInterval);
 
-  const periodIntervalMap = {
+  const periodIntervalMap = useMemo(() =>({
     "1d": ["1m", "5m", "15m", "30m", "1h"],
     "5d": ["5m", "15m", "30m", "1h"],
     "1mo": ["1h", "1d"],
@@ -21,7 +21,7 @@ const TimePeriodSelector: React.FC = () => {
     "10y": ["1mo"],
     "ytd": ["1d", "1wk"],
     "max": ["1mo"]
-  };
+  }),[]);
 
   const [validIntervals, setValidIntervals] = useState<string[]>(periodIntervalMap[selectedPeriod]);
 
@@ -30,7 +30,7 @@ const TimePeriodSelector: React.FC = () => {
     if (!periodIntervalMap[selectedPeriod].includes(selectedInterval)) {
       setSelectedInterval(periodIntervalMap[selectedPeriod][0]);
     }
-  }, [selectedPeriod]);
+  }, [selectedPeriod,periodIntervalMap,selectedInterval,setSelectedInterval]);
 
   const handlePeriodChange = (period: string) => {
     setSelectedPeriod(period);

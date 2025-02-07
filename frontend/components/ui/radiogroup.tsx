@@ -14,7 +14,8 @@ const RadioGroup = React.forwardRef<HTMLDivElement, RadioGroupProps>(
       {...props}
     >
       {React.Children.map(children, (child) =>
-        React.cloneElement(child as React.ReactElement<any>, {
+        React.isValidElement(child) &&
+        React.cloneElement(child, {
           isSelected: child.props.value === value,
           onChange: () => onChange(child.props.value),
         })
@@ -31,7 +32,7 @@ interface RadioItemProps extends React.HTMLAttributes<HTMLButtonElement> {
 }
 
 const RadioItem = React.forwardRef<HTMLButtonElement, RadioItemProps>(
-  ({ value, isSelected, onChange, className, children, ...props }, ref) => (
+  ({ isSelected, onChange, className, children, ...props }, ref) => (
     <button
       ref={ref}
       onClick={onChange}
