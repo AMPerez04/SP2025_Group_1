@@ -7,14 +7,16 @@ from dotenv import load_dotenv
 from typing import Optional
 import os
 import time
-
-# import yfinance as yf
-from analytics.data_fetcher import fetch_multiple_stock_data
+from analytics.data_fetcher import fetch_stock_data
 import logging
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    filename="backend.log",
+    filemode="a",
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
 logger = logging.getLogger(__name__)
-
 
 load_dotenv()
 
@@ -117,7 +119,7 @@ class WatchlistTicker(BaseModel):
 
 
 class WatchlistRequest(BaseModel):
-    """watchlist request takes in a UserID, Ticker to add/remove, and the full name + icon src URL"""
+    """watchlist request takes in a ID, Ticker to add/remove, and the full name + icon src URL"""
 
     ID: str
     Ticker: str
@@ -126,24 +128,20 @@ class WatchlistRequest(BaseModel):
 
 
 class WatchlistResponse(BaseModel):
-    """watchlist response outputs list of tickers (watchlist) associated with the UserID"""
+    """watchlist response outputs list of tickers (watchlist) associated with the ID"""
 
-    UserID: str
-    """ watchlist response outputs list of tickers (watchlist) associated with the UserID"""
+    ID: str
     Tickers: list[WatchlistTicker]
 
 
 @app.get("/watchlist/{ID}", response_model=WatchlistResponse)
 def get_watchlist(ID: str):
     """returns watchlist associated with UserID"""
-
     mongo_id = ObjectId(ID)
     watchlist = watchlists.find_one({"_id": mongo_id})
-
     if watchlist:
-        return {"Tickers": watchlist["Tickers"]}
-
-    return {"Tickers": []}
+        return {"ID": ID, "Tickers": watchlist["Tickers"]}
+    return {"ID": ID, "Tickers": []}
 
 
 @app.post("/watchlist/add", response_model=WatchlistResponse)
@@ -152,18 +150,15 @@ async def add_to_watchlist(request: WatchlistRequest):
 
     mongo_id = ObjectId(request.ID)
     watchlist = watchlists.find_one({"_id": mongo_id})
-
     ticker_details = {
         "Ticker": request.Ticker,
         "FullName": request.FullName,
         "Icon": request.Icon,
     }
-
     # 3 cases:
     # 1. User has watchlist, and requested ticker is new  --> add to watchlist
     # 2. User has watchlist, but requested ticker is duplicate --> don't add it again
     # 3. User has no watchlist (for some reason) --> create new watchlist with requested ticker
-
     if watchlist:
         if not any(
             ticker["Ticker"] == request.Ticker for ticker in watchlist["Tickers"]
@@ -174,7 +169,7 @@ async def add_to_watchlist(request: WatchlistRequest):
             )
     else:
         watchlists.insert_one({"_id": mongo_id, "Tickers": [ticker_details]})
-    
+
     return get_watchlist(request.ID)
 
 
@@ -193,9 +188,8 @@ async def remove_from_watchlist(request: WatchlistRequest):
         )
         if ticker_exists:
             watchlists.update_one(
-                {"UserID": userID}, {"$pull": {"Tickers": {"Ticker": ticker}}}
                 {"_id": mongo_id},
-                {"$pull": {"Tickers": {"Ticker": ticker}}}
+                {"$pull": {"Tickers": {"Ticker": ticker}}},
             )
 
         return {"success": True}
@@ -204,19 +198,60 @@ async def remove_from_watchlist(request: WatchlistRequest):
         return {"success": False}
 
 
-@app.get("/watchlist/{UserID}/data")
-def get_watchlist_data(UserID: str):
-    """returns stock data for tickers in user's watchlist"""
+@app.get("/data")
+def fetch_financial_data(
+    ticker: str, period: str = "1y", interval: str = "1d"
+):
+    """returns stock data for ticker"""
+    period_interval_map = {
+        "1d": ["1m", "5m", "15m", "30m", "1h"],
+        "5d": ["5m", "15m", "30m", "1h"],
+        "1mo": ["1h", "1d"],
+        "3mo": ["1d", "1wk"],
+        "6mo": ["1d", "1wk"],
+        "1y": ["1d", "1wk", "1mo"],
+        "2y": ["1wk", "1mo"],
+        "5y": ["1wk", "1mo"],
+        "10y": ["1mo"],
+        "ytd": ["1d", "1wk"],
+        "max": ["1mo"],
+    }
+    logger.info(
+        f"Fetching data for ticker(s) {ticker} with period {period} and interval {interval}"
+    )
+    if period not in period_interval_map:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid period '{period}'. Valid periods are: {', '.join(period_interval_map.keys())}",
+        )
+
+    if interval not in period_interval_map[period]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid interval '{interval}' for period '{period}'. Valid intervals for this period are: {', '.join(period_interval_map[period])}",
+        )
     try:
-        watchlist = watchlists.find_one({"UserID": UserID})
+        stock_data = fetch_stock_data(ticker=ticker, period=period, interval=interval)
+        return stock_data
+    except Exception as e:
+        logger.error(f"Error fetching data for ticker(s) {ticker}: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+@app.get("/watchlist/{ID}/intraday_data")
+def get_watchlist_intraday_data(ID: str):
+    """returns intraday stock data for tickers in user's watchlist"""
+    try:
+        mongo_id = ObjectId(ID)
+        watchlist = watchlists.find_one({"_id": mongo_id})
         if not watchlist:
             raise HTTPException(status_code=404, detail="Watchlist not found")
 
         tickers = [ticker["Ticker"] for ticker in watchlist["Tickers"]]
-        stock_data = fetch_multiple_stock_data(tickers)
-        return stock_data
+        intraday_data = fetch_stock_data(tickers, period="1d", interval="1h")
+        return intraday_data
     except Exception as e:
-        logger.error(f"Error fetching watchlist data for user {UserID}: {e}")
+        logger.error(f"Error fetching intraday watchlist data for user {ID}: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
