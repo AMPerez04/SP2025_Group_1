@@ -4,6 +4,10 @@ import React from "react";
 
 import { DollarSign, Users, CreditCard, Activity } from "lucide-react";
 import { ResponsiveContainer } from "recharts";
+import AreaChart from "@/app/dashboard/components/visualizations/areachart";
+
+import TimePeriodSelector from "@/app/dashboard/components/visualizations/timeperiodselector";
+
 
 import {
   Card,
@@ -82,16 +86,18 @@ export default function Page() {
               </Card>
             </div>
             <div className="flex justify-center">
-              <Card className="col-span-2 lg:col-span-4">
+              <Card className="col-span-2 lg:col-span-4 w-full">
                 <CardHeader>
                   <CardTitle>Overview</CardTitle>
                 </CardHeader>
                 <CardContent className="pl-2">
-                  <ResponsiveContainer width="100%" height={350}>
-                    <p className="text-center italic w-[600px]">
+                  <TimePeriodSelector />
+                  <ResponsiveContainer width="100%" height="100%">
+                    {/* <p className="text-center italic w-[600px]">
                       Insert visualization here
-                    </p>
-                  </ResponsiveContainer>
+                    </p> */}
+<AreaChart />
+</ResponsiveContainer>
                 </CardContent>
               </Card>
             </div>

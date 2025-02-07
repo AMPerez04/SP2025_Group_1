@@ -17,12 +17,14 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { useStore } from "@/zustand/store";
 
 interface LayoutProps {
   readonly children: ReactNode;
 }
 
 export default function Layout({ children }: LayoutProps) {
+  const { selectedAsset } = useStore((state) => state);
   return (
     <main>
       <SidebarProvider>
@@ -39,8 +41,7 @@ export default function Layout({ children }: LayoutProps) {
                   </BreadcrumbItem>
                   <BreadcrumbSeparator className="hidden md:block" />
                   <BreadcrumbItem>
-                    <BreadcrumbPage>$AAPL</BreadcrumbPage>{" "}
-                    {/* TODO: Make this dynamic */}
+                    <BreadcrumbPage>${selectedAsset}</BreadcrumbPage>{" "}
                   </BreadcrumbItem>
                 </BreadcrumbList>
               </Breadcrumb>
