@@ -49,7 +49,7 @@ interface Store {
 
 export const useStore = create<Store>((set, get) => ({
   user: {
-    ID: "67a2e2ca7d35e6dfd35f3b17",
+    ID: "67a2e2ca7d35e6dfd35f3b11",
     email: "jd@wustl.edu",
     avatar: "",
     name: "John Doe",
