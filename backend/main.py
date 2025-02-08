@@ -166,6 +166,59 @@ async def remove_from_watchlist(request: WatchlistRequest):
 
     except Exception:
         return {"success": False}
+    
+#================================================================================================================================
+# === /survey endpoints =========================================================================================================
+#================================================================================================================================
+@app.get("/survey/sectors", response_model=list[str])
+def get_sectors():
+    """ returns list of all unique sectors in the assets collection"""
+
+    sectors = assets.distinct("Sector")
+    return sectors
+
+class SurveySubmission(BaseModel):
+    ID: str
+    Sectors: list[str]
+
+@app.post("/survey")
+async def submit_survey(request: SurveySubmission):
+    """ handles survey submission by creating a watchlist for the user.
+        if no sectors are selected, an empty watchlist is created.
+        otherwise, 2 stocks from each selected sector are added to the watchlist """
+    
+    mongo_id = ObjectId(request.ID)
+    
+    watchlists.update_one(
+        {"_id": mongo_id},
+        {"$setOnInsert": {"Tickers": []}},
+        upsert=True
+    )
+
+    if not request.Sectors:
+        return
+    
+    selected_assets = []
+    for sector in request.Sectors:
+        cursor = assets.find(
+            {"Sector": sector},
+            {"_id": 0, "Ticker": 1, "Name": 1, "IconURL": 1}
+        ).limit(2)
+
+        sector_assets = [
+            {"Ticker": asset["Ticker"], "FullName": asset["Name"], "Icon": asset["IconURL"]}
+            for asset in cursor
+        ]
+        selected_assets.extend(sector_assets)
+
+    if selected_assets:
+        watchlists.update_one(
+            {"_id": mongo_id},
+            {"$set": {"Tickers": selected_assets}}
+        )
+
+    return
+
 
 if __name__ == "__main__":
     import uvicorn
