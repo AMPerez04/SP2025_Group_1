@@ -60,7 +60,7 @@ async def get_assets(query: str = Query(None, min_length=1)):
 
     assets_cursor = assets.find(
         prefix_query,
-        {"_id": 0, "Ticker": 1, "IconURL": 1, "Name": 1, "Country": 1, "Exchange": 1, "CountryFlag": 1}
+        {"_id": 0, "Ticker": 1, "IconURL": 1, "Name": 1, "Country": 1, "Exchange": 1, "CountryFlag": 1, "ExchangeLogo": 1}
     ).sort([("Ticker", 1), ("Name", 1)])
 
     assets_list = [
@@ -68,12 +68,14 @@ async def get_assets(query: str = Query(None, min_length=1)):
             "ticker": asset.get("Ticker", ""),
             "icon": asset.get("IconURL", ""),
             "full_name": asset.get("Name", ""),
-            "market": asset.get("Exchange", ""),
+            "market_name": asset.get("Exchange", ""),
             "country": asset.get("Country", ""),
             "country_flag": asset.get("CountryFlag", ""),
+            "market_logo": asset.get("ExchangeLogo", ""),
         }
         for asset in assets_cursor
     ]
+
 
     cache[query] = {
         "data": assets_list,
@@ -92,13 +94,17 @@ class WatchlistTicker(BaseModel):
     Ticker: str
     FullName: str
     Icon: str
+    MarketName: str
+    MarketLogo: str
 
 class WatchlistRequest(BaseModel):
     """ watchlist request takes in a UserID, Ticker to add/remove, and the full name + icon src URL"""
     ID: str
     Ticker: str
-    FullName: Optional[str] = None  # optional for remove requests
-    Icon: Optional[str] = None      # optional for remove requests
+    FullName: Optional[str] = None      # optional for remove requests
+    Icon: Optional[str] = None          # optional for remove requests
+    MarketName: Optional[str] = None    # optional for remove requests
+    MarketLogo: Optional[str] = None    # optional for remove requests
 
 class WatchlistResponse(BaseModel):
     """ watchlist response outputs list of tickers (watchlist) associated with the UserID"""
@@ -127,6 +133,8 @@ async def add_to_watchlist(request: WatchlistRequest):
         "Ticker": request.Ticker,
         "FullName": request.FullName,
         "Icon": request.Icon,
+        "MarketName": request.MarketName,
+        "MarketLogo": request.MarketLogo,
     }
 
     # 3 cases:

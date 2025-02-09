@@ -23,9 +23,20 @@ export default function SidebarItems() {
           <SidebarMenuItem key={item.Ticker}>
             <SidebarMenuButton
               asChild
-              onClick={() => setSelectedAsset(item.Ticker)}
+              onClick={() => {
+                const asset = watchlist.find((a) => a.Ticker === item.Ticker);
+                if (asset) {
+                  setSelectedAsset({
+                    assetLogo: asset.Icon,
+                    companyName: asset.FullName,
+                    ticker: asset.Ticker,
+                    marketName: asset.MarketName,
+                    marketLogo: asset.MarketLogo,
+                  });
+                }
+              }}
               className={
-                selectedAsset === item.Ticker
+                selectedAsset?.ticker === item.Ticker
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"
                   : ""
               }
