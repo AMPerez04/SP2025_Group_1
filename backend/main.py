@@ -210,11 +210,11 @@ async def submit_survey(request: SurveySubmission):
     for sector in request.Sectors:
         cursor = assets.find(
             {"Sector": sector},
-            {"_id": 0, "Ticker": 1, "Name": 1, "IconURL": 1}
+            {"_id": 0, "Ticker": 1, "Name": 1, "IconURL": 1, "Exchange": 1, "ExchangeLogo": 1}
         ).limit(2)
 
         sector_assets = [
-            {"Ticker": asset["Ticker"], "FullName": asset["Name"], "Icon": asset["IconURL"]}
+            {"Ticker": asset["Ticker"], "FullName": asset["Name"], "Icon": asset["IconURL"], "MarketName": asset["Exchange"], "MarketLogo": asset["ExchangeLogo"]}
             for asset in cursor
         ]
         selected_assets.extend(sector_assets)
