@@ -176,7 +176,7 @@ async def remove_from_watchlist(request: WatchlistRequest):
 # Authentication Endpoints (Login & Signup)
 # ==============================================================================================================
 
-users = db["users"]  # New collection for storing user documents
+users = db["users"]             # db collection w/ user info
 
 class UserSignup(BaseModel):
     email: EmailStr

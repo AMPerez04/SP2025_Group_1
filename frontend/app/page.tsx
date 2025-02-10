@@ -2,23 +2,86 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useStore } from "@/zustand/store"; // adjust the import path as needed
 
 export default function Page() {
   // Toggle between "login" and "signup" mode.
   const [mode, setMode] = useState<"login" | "signup">("login");
+  // Local state for controlled inputs.
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  // Only needed in signup mode.
+  const [username, setUsername] = useState("");
+
+  // Get the setUser method from our Zustand store.
+  const setUser = useStore((state) => state.setUser);
+  // Next.js router for redirection.
+  const router = useRouter();
 
   const toggleMode = () => {
     setMode((prev) => (prev === "login" ? "signup" : "login"));
+    // Clear the form fields when switching modes.
+    setEmail("");
+    setPassword("");
+    setUsername("");
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (mode === "login") {
-      // Handle login submission
-      console.log("Logging in...");
-    } else {
-      // Handle signup submission
-      console.log("Signing up...");
+
+    try {
+      if (mode === "login") {
+        // Call the login endpoint.
+        const res = await fetch("http://127.0.0.1:8000/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          // The backend returns: { message, user: { email, username, user_id } }
+          setUser({
+            ID: data.user.user_id,
+            email: data.user.email,
+            name: data.user.username,
+            avatar: "", // Add an avatar URL if available
+          });
+          console.log("Login successful");
+          // Optionally, redirect after login:
+          router.push("/survey");
+        } else {
+          const errorData = await res.json();
+          console.error("Login failed:", errorData.detail || res.statusText);
+        }
+      } else {
+        // Signup mode
+        const res = await fetch("http://127.0.0.1:8000/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, username, password }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          // The backend returns: { message, user_id }
+          setUser({
+            ID: data.user_id,
+            email: email,
+            name: username,
+            avatar: "",
+          });
+          console.log("Signup successful");
+          // Optionally, redirect after signup:
+          router.push("/survey");
+        } else {
+          const errorData = await res.json();
+          console.error("Signup failed:", errorData.detail || res.statusText);
+        }
+      }
+    } catch (err) {
+      console.error("Error during auth:", err);
     }
   };
 
@@ -58,11 +121,13 @@ export default function Page() {
             name="email"
             placeholder=" " // non-empty placeholder needed for :placeholder-shown
             required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             className="peer text-2xl text-[#1F2346] py-1.5 w-full pr-10 border-b-[3px] border-b-[#D1D1D1] bg-transparent transition-colors duration-200 focus:border-b-[#605DFF] outline-none"
           />
           <label
             htmlFor="email"
-            className="absolute left-0 bg-white px-0 pointer-events-none transition-all duration-300
+            className="absolute left-0 bg-white pointer-events-none transition-all duration-300
               peer-placeholder-shown:top-[1.2rem]
               peer-placeholder-shown:text-[1.2rem]
               peer-focus:top-[-0.8rem]
@@ -107,11 +172,13 @@ export default function Page() {
             title="Minimum 6 characters at least 1 Alphabet, 1 Number and 1 Symbol"
             pattern="^(?=.*[A-Za-z])(?=.*\d)(?=.*[\W_])[A-Za-z\d\W_]{6,}$"
             required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             className="peer text-2xl text-[#1F2346] py-1.5 w-full pr-10 border-b-[3px] border-b-[#D1D1D1] bg-transparent transition-colors duration-200 focus:border-b-[#605DFF] outline-none"
           />
           <label
             htmlFor="password"
-            className="absolute left-0 bg-white px-0 pointer-events-none transition-all duration-300
+            className="absolute left-0 bg-white pointer-events-none transition-all duration-300
               peer-placeholder-shown:top-[1.2rem]
               peer-placeholder-shown:text-[1.2rem]
               peer-focus:top-[-0.8rem]
@@ -155,11 +222,13 @@ export default function Page() {
               name="username"
               placeholder=" "
               required
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               className="peer text-2xl text-[#1F2346] py-1.5 w-full pr-10 border-b-[3px] border-b-[#D1D1D1] bg-transparent transition-colors duration-200 focus:border-b-[#605DFF] outline-none"
             />
             <label
               htmlFor="username"
-              className="absolute left-0 bg-white px-0 pointer-events-none transition-all duration-300
+              className="absolute left-0 bg-white pointer-events-none transition-all duration-300
                 peer-placeholder-shown:top-[1.2rem]
                 peer-placeholder-shown:text-[1.2rem]
                 peer-focus:top-[-0.8rem]
