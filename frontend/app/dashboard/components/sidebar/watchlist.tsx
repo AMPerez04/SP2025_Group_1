@@ -10,26 +10,26 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { removeFromWatchlist } from "@/app/utils/api";
+import { useStore } from "@/zustand/store";
 
-export default function SidebarItems({
-  watchlist,
-  setWatchlist,
-  userID,
-}: {
-  watchlist: { Ticker: string; FullName: string; Icon: string }[];
-  setWatchlist: React.Dispatch<
-    React.SetStateAction<{ Ticker: string; FullName: string; Icon: string }[]>
-  >;
-  userID: string;
-}) {
+export default function SidebarItems() {
+  const { watchlist, removeFromWatchlist, setSelectedAsset, selectedAsset } =
+    useStore((state) => state);
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
       <SidebarGroupLabel>Watchlist</SidebarGroupLabel>
       <SidebarMenu>
         {watchlist.map((item) => (
           <SidebarMenuItem key={item.Ticker}>
-            <SidebarMenuButton asChild>
+            <SidebarMenuButton
+              asChild
+              onClick={() => setSelectedAsset(item.Ticker)}
+              className={
+                selectedAsset === item.Ticker
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : ""
+              }
+            >
               <a>
                 <BadgeDollarSign />
                 <span>{item.Ticker}</span>
@@ -37,9 +37,7 @@ export default function SidebarItems({
             </SidebarMenuButton>
             <SidebarMenuAction
               showOnHover
-              onClick={() =>
-                removeFromWatchlist(userID, item.Ticker, setWatchlist)
-              }
+              onClick={() => removeFromWatchlist(item.Ticker)}
             >
               <Trash2 />
             </SidebarMenuAction>
