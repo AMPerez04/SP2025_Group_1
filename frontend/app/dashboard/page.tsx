@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import AssetHeader from "./components/asset-header";
 
 export default function Page() {
   return (
@@ -21,12 +22,11 @@ export default function Page() {
         <div className="flex-col items-center justify-between space-y-2 md:flex md:flex-row">
           <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         </div>
+        <AssetHeader />
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="analytics" disabled>
-              Insights
-            </TabsTrigger>
+            <TabsTrigger value="insights">Insights</TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -94,6 +94,11 @@ export default function Page() {
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
+            </div>
+          </TabsContent>
+          <TabsContent value="insights" className="space-y-4">
+            <div className="flex justify-center items-center h-[300px]">
+              <h1 className="text-center">insights here</h1>
             </div>
           </TabsContent>
         </Tabs>
