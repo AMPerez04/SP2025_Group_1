@@ -80,7 +80,13 @@ export function SearchBar() {
                   <div
                     className="grid grid-cols-6 gap-4 items-center"
                     onClick={() =>
-                      addToWatchlist(asset.ticker, asset.full_name, asset.icon)
+                      addToWatchlist(
+                        asset.ticker,
+                        asset.full_name,
+                        asset.icon,
+                        asset.market_name,
+                        asset.market_logo
+                      )
                     }
                   >
                     {/* asset's icon & ticker */}
@@ -107,7 +113,7 @@ export function SearchBar() {
                     {/* asset's market & flag */}
                     <div className="flex items-center justify-end col-span-1 space-x-2">
                       <span className="mr-3 text-xs text-muted-foreground">
-                        {asset.market}
+                        {asset.market_name}
                       </span>
                       <Image
                         src={asset.country_flag}

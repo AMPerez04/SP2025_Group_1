@@ -25,6 +25,7 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const { selectedAsset } = useStore((state) => state);
+
   return (
     <main>
       <SidebarProvider>
@@ -39,15 +40,29 @@ export default function Layout({ children }: LayoutProps) {
                   <BreadcrumbItem className="hidden md:block">
                     <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
                   </BreadcrumbItem>
-                  <BreadcrumbSeparator className="hidden md:block" />
-                  <BreadcrumbItem>
-                    <BreadcrumbPage>${selectedAsset}</BreadcrumbPage>{" "}
-                  </BreadcrumbItem>
+                  {selectedAsset && (
+                    <>
+                      <BreadcrumbSeparator className="hidden md:block" />
+                      <BreadcrumbItem>
+                        <BreadcrumbPage>${selectedAsset.ticker}</BreadcrumbPage>
+                      </BreadcrumbItem>
+                    </>
+                  )}
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
           </header>
-          <div className="p-4 pt-0">{children}</div>
+          <div className="p-4 pt-0">
+            {selectedAsset ? (
+              children
+            ) : (
+              <div className="flex justify-center items-center h-[calc(100vh-4rem)]">
+                <h2 className="text-2xl font-semibold text-gray-500">
+                  Add stocks to your watchlist to view the dashboard
+                </h2>
+              </div>
+            )}
+          </div>
         </SidebarInset>
       </SidebarProvider>
     </main>
