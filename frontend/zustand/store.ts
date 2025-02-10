@@ -11,15 +11,26 @@ interface WatchlistItem {
   Ticker: string;
   FullName: string;
   Icon: string;
+  MarketName: string;
+  MarketLogo: string;
 }
 
 interface Asset {
   ticker: string;
   icon: string;
   full_name: string;
-  market: string;
+  market_name: string;
+  market_logo: string;
   country: string;
   country_flag: string;
+}
+
+interface SelectedAsset {
+  assetLogo: string;
+  companyName: string;
+  ticker: string;
+  marketName: string;
+  marketLogo: string;
 }
 
 interface Store {
@@ -34,7 +45,9 @@ interface Store {
   addToWatchlist: (
     ticker: string,
     fullname: string,
-    icon: string
+    icon: string,
+    market_name: string,
+    market_logo: string
   ) => Promise<void>;
   removeFromWatchlist: (ticker: string) => Promise<void>;
 
@@ -43,13 +56,13 @@ interface Store {
   getAssets: (searchQuery: string) => Promise<void>;
   setAssets: (newAssets: Asset[]) => void;
 
-  selectedAsset: string;
-  setSelectedAsset: (asset: string) => void;
+  selectedAsset: SelectedAsset | null;
+  setSelectedAsset: (asset: SelectedAsset) => void;
 }
 
 export const useStore = create<Store>((set, get) => ({
   user: {
-    ID: "67a2e2ca7d35e6dfd35f3b17",
+    ID: "67a2e2ca7d35e6dfd35f3b13",
     email: "jd@wustl.edu",
     avatar: "",
     name: "John Doe",
@@ -62,7 +75,15 @@ export const useStore = create<Store>((set, get) => ({
 
     // if no asset currently selected --> select 1st asset in the watchlist
     if (!get().selectedAsset && newWatchlist.length > 0) {
-      set({ selectedAsset: newWatchlist[0].Ticker });
+      set({
+        selectedAsset: {
+          assetLogo: newWatchlist[0].Icon,
+          companyName: newWatchlist[0].FullName,
+          ticker: newWatchlist[0].Ticker,
+          marketName: newWatchlist[0].MarketName,
+          marketLogo: newWatchlist[0].MarketLogo,
+        },
+      });
     }
   },
   // gets user's watchlist
@@ -76,7 +97,15 @@ export const useStore = create<Store>((set, get) => ({
 
       // if no asset currently selected --> select 1st asset in the watchlist
       if (!get().selectedAsset && tickers.length > 0) {
-        set({ selectedAsset: tickers[0].Ticker });
+        set({
+          selectedAsset: {
+            assetLogo: tickers[0].Icon,
+            companyName: tickers[0].FullName,
+            ticker: tickers[0].Ticker,
+            marketName: tickers[0].MarketName,
+            marketLogo: tickers[0].MarketLogo,
+          },
+        });
       }
     } catch (error) {
       console.error("ERROR: Unable to get watchlist:", error);
@@ -84,7 +113,7 @@ export const useStore = create<Store>((set, get) => ({
     }
   },
   // adds asset to user's watchlist
-  addToWatchlist: async (ticker, fullname, icon) => {
+  addToWatchlist: async (ticker, fullname, icon, market_name, market_logo) => {
     try {
       const { ID } = get().user;
       const response = await fetch("http://127.0.0.1:8000/watchlist/add", {
@@ -95,6 +124,8 @@ export const useStore = create<Store>((set, get) => ({
           Ticker: ticker,
           FullName: fullname,
           Icon: icon,
+          MarketName: market_name,
+          MarketLogo: market_logo,
         }),
       });
       const data = await response.json();
@@ -120,8 +151,18 @@ export const useStore = create<Store>((set, get) => ({
         await get().getWatchList(ID);
 
         // if removed asset was selected --> select 1st asset in the watchlist
-        if (get().selectedAsset === ticker) {
-          set({ selectedAsset: get()?.watchlist[0]?.Ticker || "" });
+        if (get().selectedAsset?.ticker === ticker) {
+          set({
+            selectedAsset: get()?.watchlist[0]
+              ? {
+                  assetLogo: get()?.watchlist[0].Icon,
+                  companyName: get()?.watchlist[0].FullName,
+                  ticker: get()?.watchlist[0].Ticker,
+                  marketName: get()?.watchlist[0].MarketName,
+                  marketLogo: get()?.watchlist[0].MarketLogo,
+                }
+              : null,
+          });
         }
       }
     } catch (error) {
@@ -146,6 +187,6 @@ export const useStore = create<Store>((set, get) => ({
     }
   },
 
-  selectedAsset: get()?.watchlist[0]?.Ticker || "",
-  setSelectedAsset: (ticker) => set({ selectedAsset: ticker }),
+  selectedAsset: null,
+  setSelectedAsset: (asset) => set({ selectedAsset: asset }),
 }));
