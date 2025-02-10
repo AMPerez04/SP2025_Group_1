@@ -1,10 +1,11 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from pymongo import MongoClient
 from bson import ObjectId
 from dotenv import load_dotenv
 from typing import Optional
+from passlib.context import CryptContext
 import os
 import time
 
@@ -22,6 +23,9 @@ app.add_middleware(
 # MongoDB connection
 client = MongoClient(os.getenv("MONGO_URI"))
 db = client["stock_dashboard"]
+
+# Create a password hashing context (using bcrypt)
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 @app.get("/")
 def read_root():
@@ -166,6 +170,69 @@ async def remove_from_watchlist(request: WatchlistRequest):
 
     except Exception:
         return {"success": False}
+    
+    
+    # ==============================================================================================================
+# Authentication Endpoints (Login & Signup)
+# ==============================================================================================================
+
+users = db["users"]  # New collection for storing user documents
+
+class UserSignup(BaseModel):
+    email: EmailStr
+    username: str
+    password: str
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+@app.post("/signup")
+async def signup(user: UserSignup):
+    # Check if a user with the same email already exists.
+    existing_user = users.find_one({"email": user.email})
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User with this email already exists."
+        )
+    # Hash the password (in production, never store plain-text passwords)
+    hashed_password = pwd_context.hash(user.password)
+    new_user = {
+        "email": user.email,
+        "username": user.username,
+        "password": hashed_password
+    }
+    result = users.insert_one(new_user)
+    return {
+        "message": "User created successfully.",
+        "user_id": str(result.inserted_id)
+    }
+
+@app.post("/login")
+async def login(user: UserLogin):
+    existing_user = users.find_one({"email": user.email})
+    if not existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found."
+        )
+    if not pwd_context.verify(user.password, existing_user["password"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials."
+        )
+    # In a real application, you would generate and return an auth token here.
+    return {
+        "message": "Login successful.",
+        "user": {
+            "email": existing_user["email"],
+            "username": existing_user["username"],
+            "user_id": str(existing_user["_id"])
+        }
+    }
+    
+    
 
 if __name__ == "__main__":
     import uvicorn
