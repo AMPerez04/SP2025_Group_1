@@ -54,7 +54,6 @@ export default function Page() {
           name: data.user.username,
           avatar: "", // add an avatar URL if available
         });
-        console.log("Login successful");
         router.push("/survey");
       } else {
 
@@ -69,7 +68,6 @@ export default function Page() {
           name: data.user.username,
           avatar: "",
         });
-        console.log("Signup and login successful");
         router.push("/survey");
       }
     } catch (err: unknown) {
@@ -98,6 +96,7 @@ export default function Page() {
               alt="Logo"
               width={48}
               height={48}
+              priority
               className="mx-auto h-12"
             />
           </a>
@@ -115,6 +114,57 @@ export default function Page() {
         {errorMessage && (
           <div className="text-red-500 text-center font-semibold">
             {errorMessage}
+          </div>
+        )}
+
+        {/* Additional Field for Signup */}
+        {mode === "signup" && (
+          <div className="relative pt-[0.9375rem] mb-2">
+            <input
+              type="text"
+              id="username"
+              name="username"
+              placeholder=" "
+              required
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="peer text-2xl text-[#1F2346] py-1.5 w-full pr-10 border-b-[3px] border-b-[#D1D1D1] bg-transparent transition-colors duration-200 focus:border-b-[#605DFF] outline-none"
+            />
+            <label
+              htmlFor="username"
+              className="absolute left-0 bg-white pointer-events-none transition-all duration-300
+                peer-placeholder-shown:top-[1.2rem]
+                peer-placeholder-shown:text-[1.2rem]
+                peer-focus:top-[-0.8rem]
+                peer-focus:text-[1.2rem]
+                peer-focus:text-[#605DFF]
+                peer-[&:not(:placeholder-shown)]:top-[-0.8rem]
+                peer-[&:not(:placeholder-shown)]:text-[1.2rem]
+                peer-[&:not(:placeholder-shown)]:text-[#605DFF]"
+            >
+              Username
+            </label>
+            <div
+              className="absolute right-0 top-1/2 transform -translate-y-1/2 pr-2 transition-colors duration-200
+                peer-placeholder-shown:text-[#1F2346]
+                peer-focus:text-[#605DFF]
+                peer-[&:not(:placeholder-shown)]:text-[#605DFF]"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
+              </svg>
+            </div>
           </div>
         )}
 
@@ -142,7 +192,7 @@ export default function Page() {
               peer-[&:not(:placeholder-shown)]:text-[1.2rem]
               peer-[&:not(:placeholder-shown)]:text-[#605DFF]"
           >
-            Email:
+            Email
           </label>
           {/* Email Icon */}
           <div
@@ -217,57 +267,6 @@ export default function Page() {
             </svg>
           </div>
         </div>
-
-        {/* Additional Field for Signup */}
-        {mode === "signup" && (
-          <div className="relative pt-[0.9375rem] mb-2">
-            <input
-              type="text"
-              id="username"
-              name="username"
-              placeholder=" "
-              required
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="peer text-2xl text-[#1F2346] py-1.5 w-full pr-10 border-b-[3px] border-b-[#D1D1D1] bg-transparent transition-colors duration-200 focus:border-b-[#605DFF] outline-none"
-            />
-            <label
-              htmlFor="username"
-              className="absolute left-0 bg-white pointer-events-none transition-all duration-300
-                peer-placeholder-shown:top-[1.2rem]
-                peer-placeholder-shown:text-[1.2rem]
-                peer-focus:top-[-0.8rem]
-                peer-focus:text-[1.2rem]
-                peer-focus:text-[#605DFF]
-                peer-[&:not(:placeholder-shown)]:top-[-0.8rem]
-                peer-[&:not(:placeholder-shown)]:text-[1.2rem]
-                peer-[&:not(:placeholder-shown)]:text-[#605DFF]"
-            >
-              Username
-            </label>
-            <div
-              className="absolute right-0 top-1/2 transform -translate-y-1/2 pr-2 transition-colors duration-200
-                peer-placeholder-shown:text-[#1F2346]
-                peer-focus:text-[#605DFF]
-                peer-[&:not(:placeholder-shown)]:text-[#605DFF]"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                />
-              </svg>
-            </div>
-          </div>
-        )}
 
         {/* Submit Button */}
         <button
