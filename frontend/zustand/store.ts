@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { normalizeTime, periodIntervalMap, getYtdIntervals, Period, Interval } from "../lib/utils";
 
 interface User {
   ID: string;
@@ -23,9 +24,11 @@ interface Asset {
 }
 
 interface Store {
-  // user info
   user: User;
   setUser: (newUser: User) => void;
+
+  error: string | null;
+
 
   // watchlist items
   watchlist: WatchlistItem[];
@@ -37,14 +40,19 @@ interface Store {
     icon: string
   ) => Promise<void>;
   removeFromWatchlist: (ticker: string) => Promise<void>;
+
   // watchlist financial data
   financialData: any;
-  fetchFinancialData: (ticker: string, period: string, interval: string) => Promise<void>;
-  selectedPeriod: string;
-  setSelectedPeriod: (period: string) => void;
-  selectedInterval: string;
-  setSelectedInterval: (interval: string) => void;
+  selectedPeriod: Period;
+  setSelectedPeriod: (period: Period) => void;
+  selectedInterval: Interval;
+  setSelectedInterval: (interval: Interval) => void;
+  fetchFinancialData: (ticker: string, period: Period, interval: Interval) => Promise<void>;
 
+  // forecast data
+  forecast: any;
+  loading: boolean;
+  fetchForecast: (ticker: string, period: Period, interval: Interval, steps?: number) => Promise<void>;
 
 
   // assets for searchbar
@@ -69,12 +77,10 @@ export const useStore = create<Store>((set, get) => ({
   setWatchlist: (newWatchlist) => {
     set({ watchlist: newWatchlist });
 
-    // if no asset currently selected --> select 1st asset in the watchlist
     if (!get().selectedAsset && newWatchlist.length > 0) {
       set({ selectedAsset: newWatchlist[0].Ticker });
     }
   },
-  // gets user's watchlist
   getWatchList: async (ID) => {
     try {
       const response = await fetch(`http://127.0.0.1:8000/watchlist/${ID}`);
@@ -83,16 +89,14 @@ export const useStore = create<Store>((set, get) => ({
 
       set({ watchlist: tickers });
 
-      // if no asset currently selected --> select 1st asset in the watchlist
       if (!get().selectedAsset && tickers.length > 0) {
         set({ selectedAsset: tickers[0].Ticker });
       }
     } catch (error) {
       console.error("ERROR: Unable to get watchlist:", error);
-      set({ watchlist: [] }); // if error --> display an empty watchlist
+      set({ watchlist: [] });
     }
   },
-  // adds asset to user's watchlist
   addToWatchlist: async (ticker, fullname, icon) => {
     try {
       const { ID } = get().user;
@@ -116,7 +120,6 @@ export const useStore = create<Store>((set, get) => ({
 
 
   },
-  // removes asset from user's watchlist
   removeFromWatchlist: async (ticker) => {
     try {
       const { ID } = get().user;
@@ -130,7 +133,6 @@ export const useStore = create<Store>((set, get) => ({
       if (data.success) {
         await get().getWatchList(ID);
 
-        // if removed asset was selected --> select 1st asset in the watchlist
         if (get().selectedAsset === ticker) {
           set({ selectedAsset: get()?.watchlist[0]?.Ticker || "" });
         }
@@ -140,62 +142,61 @@ export const useStore = create<Store>((set, get) => ({
     }
   },
   financialData: {},
-  fetchFinancialData: async (ticker, period = "1y", interval = "1d") => {
-    console.log("Fetching financial data for:", {ticker, period, interval });
+  fetchFinancialData: async (ticker, period = "1y" as Period, interval = "1d" as Interval) => {
+    const validIntervals = period === 'ytd' ? getYtdIntervals() : periodIntervalMap[period];
+    if (!validIntervals.includes(interval)) {
+      console.warn(`Invalid interval ${interval} for period ${period}. Defaulting to ${validIntervals[0]}`);
+      interval = validIntervals[0];
+      set({ selectedInterval: interval });
+
+    }
+
+    console.log("Fetching financial data for:", { ticker, period, interval });
     try {
-        // Clear existing data to prevent null reference errors
+      set({ financialData: {} });
+
+      const response = await fetch(`http://localhost:8000/data?ticker=${ticker}&period=${period}&interval=${interval}`);
+      const rawData = await response.json();
+
+      if (!rawData || Object.keys(rawData).length === 0) {
+        console.error('Error: rawData is undefined, null, or empty');
         set({ financialData: {} });
+        return;
+      }
 
-        const response = await fetch(`http://localhost:8000/data?ticker=${ticker}&period=${period}&interval=${interval}`);
-        const rawData = await response.json();
+      
+      const transformedData = Object.keys(rawData).reduce((acc, asset) => {
+        const assetData = rawData[asset];
+        if (!assetData || !assetData.Close) return acc;
 
-        if (!rawData || Object.keys(rawData).length === 0) {
-            console.error('Error: rawData is undefined, null, or empty');
-            set({ financialData: {} });
-            return;
-        }
+        acc[asset] = Object.keys(assetData.Close)
+          .filter(dateKey => assetData.Close[dateKey] !== null) 
+          .map(dateKey => ({
+            time: normalizeTime(dateKey),
+            value: assetData.Close[dateKey],
+          }))
+          .sort((a, b) => a.time - b.time);
 
-        function normalizeTime(dateStr: string) {
-            if (!dateStr) return 0;
-            const utcDate = new Date(dateStr + 'Z'); 
-            const localDate = new Date(utcDate.toLocaleString('en-US', { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }));
-            return Math.floor(localDate.getTime() / 1000);
-        }
+        return acc;
+      }, {} as Record<string, { time: number; value: number }[]>);
 
-        // Transform the data safely
-        const transformedData = Object.keys(rawData).reduce((acc, asset) => {
-            const assetData = rawData[asset];
-            if (!assetData || !assetData.Close) return acc; // Check if Close data exists
+      if (Object.keys(transformedData).length === 0) {
+        console.warn("Warning: Transformed data is empty");
+        set({ financialData: {} });
+        return;
+      }
 
-            acc[asset] = Object.keys(assetData.Close)
-                .filter(dateKey => assetData.Close[dateKey] !== null) // Ensure no null values
-                .map(dateKey => ({
-                    time: normalizeTime(dateKey),
-                    value: assetData.Close[dateKey], 
-                }))
-                .sort((a, b) => a.time - b.time);
-
-            return acc;
-        }, {} as Record<string, { time: number; value: number }[]>);
-
-        if (Object.keys(transformedData).length === 0) {
-            console.warn("Warning: Transformed data is empty");
-            set({ financialData: {} });
-            return;
-        }
-
-        set({ financialData: transformedData });
+      set({ financialData: transformedData });
 
     } catch (error) {
-        console.error('Error fetching watchlist financial data:', error);
-        set({ financialData: {} }); // Set to empty object on failure
+      console.error('Error fetching watchlist financial data:', error);
+      set({ financialData: {} });
     }
-},
+  },
 
 
   assets: [],
   setAssets: (newAssets) => set({ assets: newAssets }),
-  // gets all assets matching search query
   getAssets: async (searchQuery) => {
     if (searchQuery.length < 1) return;
     try {
@@ -206,20 +207,60 @@ export const useStore = create<Store>((set, get) => ({
       set({ assets: data });
     } catch (error) {
       console.error("ERROR: Unable to fetch assets:", error);
-      set({ assets: [] }); // if error --> display no search results
+      set({ assets: [] }); 
     }
   },
 
   selectedAsset: get()?.watchlist[0]?.Ticker || "",
   setSelectedAsset: (ticker) => set({ selectedAsset: ticker }),
 
-
-  // Add state for time period and interval
   selectedPeriod: "1y",
-  setSelectedPeriod: (period) => set({ selectedPeriod: period }),
+  setSelectedPeriod: (period) => {
+    const currentInterval = get().selectedInterval;
+    const validIntervals = period === 'ytd' ? getYtdIntervals() : periodIntervalMap[period];
+    if (!validIntervals.includes(currentInterval)) {
+      set({
+        selectedPeriod: period,
+        selectedInterval: validIntervals[0]
+      });
+    } else {
+      set({ selectedPeriod: period });
+    }
+  },
 
   selectedInterval: "1d",
   setSelectedInterval: (interval) => set({ selectedInterval: interval }),
+
+  forecast: null,
+  loading: false,
+  error: null,
+  fetchForecast: async (ticker, period = "1y", interval = "1d", steps = 30) => {
+    if (!periodIntervalMap[period].includes(interval)) {
+      console.warn(`Invalid interval ${interval} for period ${period}. Defaulting to ${periodIntervalMap[period][0]}`);
+      interval = periodIntervalMap[period][0];
+      set({ selectedInterval: interval });
+    }
+    console.log("Fetching forecast data for:", { ticker, period, interval, steps });
+    set({ loading: true, error: null });
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/predict_arima?ticker=${ticker}&period=${period}&interval=${interval}&steps=${steps}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`Error: ${response.statusText}`);
+      }
+      const data = await response.json();
+      set({ forecast: data });
+    } catch (error) {
+      console.error("Error fetching forecast data:", error);
+      set({ error: "Error fetching forecast data" });
+    } finally {
+      set({ loading: false });
+    }
+  },
 }));
 
 

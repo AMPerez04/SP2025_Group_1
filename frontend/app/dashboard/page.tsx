@@ -7,6 +7,7 @@ import { ResponsiveContainer } from "recharts";
 import AreaChart from "@/app/dashboard/components/visualizations/areachart";
 
 import TimePeriodSelector from "@/app/dashboard/components/visualizations/timeperiodselector";
+import ForecastChart from "@/app/dashboard/components/visualizations/forecastchart"; // Import the ForecastChart component
 
 
 import {
@@ -28,7 +29,7 @@ export default function Page() {
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="analytics" disabled>
+            <TabsTrigger value="analytics">
               Insights
             </TabsTrigger>
           </TabsList>
@@ -96,11 +97,15 @@ export default function Page() {
                     {/* <p className="text-center italic w-[600px]">
                       Insert visualization here
                     </p> */}
-<AreaChart />
-</ResponsiveContainer>
+                    <AreaChart />
+                  </ResponsiveContainer>
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+          <TabsContent value="analytics" className="space-y-4">
+            <TimePeriodSelector />
+            <ForecastChart /> {/* Add the ForecastChart component */}
           </TabsContent>
         </Tabs>
       </div>

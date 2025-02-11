@@ -9,6 +9,9 @@ import os
 import time
 from analytics.data_fetcher import fetch_stock_data
 import logging
+from analytics.arima_model import train_arima_model, predict_arima_model
+import pandas as pd
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,9 +32,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# MongoDB connection
 client = MongoClient(os.getenv("MONGO_URI"))
 db = client["stock_dashboard"]
+
+if client:
+    logger.info("MongoDB connection successful")
+else:
+    logger.error("MongoDB connection failed")
 
 
 @app.get("/")
@@ -42,8 +49,7 @@ def read_root():
 # ================================================================================================================================
 # === /search endpoints =========================================================================================================
 # ================================================================================================================================
-assets = db["assets"]  # db collection w/ basic asset information
-# assets don't change, so we can cache it for a day
+assets = db["assets"]
 cache = {}
 CACHE_EXPIRATION_TIME = 86400  # 1 day = 86400 seconds
 
@@ -54,8 +60,6 @@ async def get_assets(query: str = Query(None, min_length=1)):
     global cache
 
     current_time = time.time()
-
-    # if cached data is available and not expired, return the cache. Otherwise, query the DB
     if (
         query in cache
         and (current_time - cache[query]["timestamp"]) < CACHE_EXPIRATION_TIME
@@ -64,7 +68,6 @@ async def get_assets(query: str = Query(None, min_length=1)):
 
     query = query.lower()
 
-    # query DB based on prefix
     prefix_query = {
         "$or": [
             {"Ticker": {"$regex": f"^{query}", "$options": "i"}},
@@ -107,7 +110,7 @@ async def get_assets(query: str = Query(None, min_length=1)):
 # ================================================================================================================================
 # === /watchlist endpoints ======================================================================================================
 # ================================================================================================================================
-watchlists = db["watchlists"]  # db collection w/ user watchlists
+watchlists = db["watchlists"]
 
 
 class WatchlistTicker(BaseModel):
@@ -123,8 +126,8 @@ class WatchlistRequest(BaseModel):
 
     ID: str
     Ticker: str
-    FullName: Optional[str] = None  # optional for remove requests
-    Icon: Optional[str] = None  # optional for remove requests
+    FullName: Optional[str] = None
+    Icon: Optional[str] = None
 
 
 class WatchlistResponse(BaseModel):
@@ -182,7 +185,6 @@ async def remove_from_watchlist(request: WatchlistRequest):
 
         watchlist_collection = watchlists.find_one({"_id": mongo_id})
 
-        # check if ticker is in user's watchlist
         ticker_exists = any(
             item["Ticker"] == ticker for item in watchlist_collection.get("Tickers", [])
         )
@@ -199,60 +201,116 @@ async def remove_from_watchlist(request: WatchlistRequest):
 
 
 @app.get("/data")
-def fetch_financial_data(
-    ticker: str, period: str = "1y", interval: str = "1d"
-):
-    """returns stock data for ticker"""
-    period_interval_map = {
-        "1d": ["1m", "5m", "15m", "30m", "1h"],
-        "5d": ["5m", "15m", "30m", "1h"],
-        "1mo": ["1h", "1d"],
-        "3mo": ["1d", "1wk"],
-        "6mo": ["1d", "1wk"],
-        "1y": ["1d", "1wk", "1mo"],
-        "2y": ["1wk", "1mo"],
-        "5y": ["1wk", "1mo"],
-        "10y": ["1mo"],
-        "ytd": ["1d", "1wk"],
-        "max": ["1mo"],
-    }
+def fetch_financial_data(ticker: str, period: str = "1y", interval: str = "1d"):
+    """
+    returns stock data for ticker
+
+    ticker: str\n
+    period: str = "1y"\n
+    interval: str = "1d"\n
+
+    returns: dict
+    """
+
     logger.info(
         f"Fetching data for ticker(s) {ticker} with period {period} and interval {interval}"
     )
-    if period not in period_interval_map:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid period '{period}'. Valid periods are: {', '.join(period_interval_map.keys())}",
-        )
-
-    if interval not in period_interval_map[period]:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid interval '{interval}' for period '{period}'. Valid intervals for this period are: {', '.join(period_interval_map[period])}",
-        )
     try:
-        stock_data = fetch_stock_data(ticker=ticker, period=period, interval=interval)
+        stock_data = fetch_stock_data(
+            ticker=ticker, period=period, interval=interval, is_prediction=False
+        )
         return stock_data
     except Exception as e:
         logger.error(f"Error fetching data for ticker(s) {ticker}: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
-@app.get("/watchlist/{ID}/intraday_data")
-def get_watchlist_intraday_data(ID: str):
-    """returns intraday stock data for tickers in user's watchlist"""
-    try:
-        mongo_id = ObjectId(ID)
-        watchlist = watchlists.find_one({"_id": mongo_id})
-        if not watchlist:
-            raise HTTPException(status_code=404, detail="Watchlist not found")
+# ================================================================================================================================
+# === /predict endpoints ========================================================================================================
+# ================================================================================================================================
 
-        tickers = [ticker["Ticker"] for ticker in watchlist["Tickers"]]
-        intraday_data = fetch_stock_data(tickers, period="1d", interval="1h")
-        return intraday_data
+
+class ARIMATrainResponse(BaseModel, arbitrary_types_allowed=True):
+    model: any
+    stock_data: dict
+
+
+@app.post("/predict_arima")
+def predict_arima(ticker: str, period: str, interval: str) -> dict:
+    """Predict future stock prices using the trained ARIMA model"""
+    try:
+        stock_data = fetch_stock_data(
+            ticker=ticker, period=period, interval=interval, is_prediction=True
+        )
+
+        df = pd.DataFrame(
+            index=pd.to_datetime(list(stock_data[ticker]["Close"].keys()))
+        )
+        df["Close"] = list(stock_data[ticker]["Close"].values())
+
+        model = train_arima_model(df, period, interval)
+        forecast, steps = predict_arima_model(model, period, interval)
+
+        last_date = df.index[-1]
+        dates = pd.date_range(start=last_date, periods=len(forecast) + 1)[1:]
+        forecast_dict = {
+            str(date): float(value)
+            for date, value in zip(dates, forecast)
+            if pd.notna(value)
+        }
+
+        return forecast_dict
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error fetching intraday watchlist data for user {ID}: {e}")
+        logger.error(f"Error in predict_arima: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+# @app.post("/predict_arima")
+# def predict_arima(
+#     ticker: str,
+#     period: str,
+#     interval: str,
+# ) -> dict:
+#     """Predict future stock prices using the trained ARIMA model\n
+#     request: ARIMARequest\n
+#     returns: dict
+#     """
+
+#     try:
+#         # if interval not in period_interval_map[period]:
+#         #     logger.info(f"Invalid interval '{interval}' for period '{period}'. Valid intervals for this period are: {', '.join(period_interval_map[period])}. Changing to default interval '{period_interval_map[period][0]}'")
+#         #     interval = period_interval_map[period][0]
+#         result = _train_arima(ticker, period, interval)
+#         model = result.model
+#         stock_data = result.stock_data
+#         logger.info(f"Model trained for {ticker}")
+#     except Exception as e:
+#         logger.error(f"Error training model for {ticker}: {e}")
+
+#         raise HTTPException(status_code=500, detail="Internal Server Error")
+
+#     try:
+#         forecast, steps = predict_arima_model(model, period, interval)
+#         logger.info(f"Model predicted for {ticker}")
+#     except Exception as e:
+#         logger.error(f"Error predicting model for {ticker}: {e}")
+#         raise HTTPException(status_code=500, detail="Internal Server Error")
+#     last_date_of_stock_data = pd.to_datetime(
+#         sorted(stock_data[ticker]["Close"].keys())[-1]
+#     )
+#     last_price_of_stock_data = stock_data[ticker]["Close"][str(last_date_of_stock_data)]
+#     first_date_of_forecast = last_date_of_stock_data + pd.Timedelta(days=1)
+#     forecast_dates = pd.date_range(
+#         start=first_date_of_forecast, periods=steps, freq="D"
+#     )
+#     forecast_series = pd.Series(
+#         [last_price_of_stock_data] + list(forecast),
+#         index=[last_date_of_stock_data] + list(forecast_dates),
+#     )
+#     return forecast_series.to_dict()
 
 
 if __name__ == "__main__":

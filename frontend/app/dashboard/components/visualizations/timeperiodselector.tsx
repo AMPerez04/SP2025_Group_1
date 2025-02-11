@@ -1,8 +1,7 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useStore } from '../../../../zustand/store';
-import { cn } from "@/lib/utils"; // Assuming you have a cn utility
+import { cn, Period, Interval, periodIntervalMap } from "@/lib/utils";
 
-type Period = "1d" | "5d" | "1mo" | "3mo" | "6mo" | "1y" | "2y" | "5y" | "10y" | "ytd" | "max";
 
 const TimePeriodSelector: React.FC = () => {
   const selectedPeriod = useStore((state) => state.selectedPeriod as Period);
@@ -11,34 +10,21 @@ const TimePeriodSelector: React.FC = () => {
   const selectedInterval = useStore((state) => state.selectedInterval);
   const setSelectedInterval = useStore((state) => state.setSelectedInterval);
 
-  const periodIntervalMap: Record<Period, string[]> = useMemo(() => ({
-    "1d": ["1m", "5m", "15m", "30m", "1h"],
-    "5d": ["5m", "15m", "30m", "1h"],
-    "1mo": ["1h", "1d"],
-    "3mo": ["1d", "1wk"],
-    "6mo": ["1d", "1wk"],
-    "1y": ["1d", "1wk", "1mo"],
-    "2y": ["1wk", "1mo"],
-    "5y": ["1wk", "1mo"],
-    "10y": ["1mo"],
-    "ytd": ["1d", "1wk"],
-    "max": ["1mo"]
-  }), []);
-
-  const [validIntervals, setValidIntervals] = useState<string[]>(periodIntervalMap[selectedPeriod]);
-
+  const [validIntervals, setValidIntervals] = useState<Interval[]>(
+    () => [...periodIntervalMap[selectedPeriod]]
+  );
   useEffect(() => {
-    setValidIntervals(periodIntervalMap[selectedPeriod]);
+    setValidIntervals([...periodIntervalMap[selectedPeriod]]);
     if (!periodIntervalMap[selectedPeriod].includes(selectedInterval)) {
       setSelectedInterval(periodIntervalMap[selectedPeriod][0]);
     }
-  }, [selectedPeriod, selectedInterval, setSelectedInterval,periodIntervalMap]);
+  }, [selectedPeriod, selectedInterval, setSelectedInterval]);
 
   const handlePeriodChange = (period: Period) => {
     setSelectedPeriod(period);
   };
 
-  const handleIntervalChange = (interval: string) => {
+  const handleIntervalChange = (interval: Interval) => {
     setSelectedInterval(interval);
   };
 

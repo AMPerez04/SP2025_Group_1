@@ -1,45 +1,53 @@
 # backend/analytics/data_fetcher.py
 import yfinance as yf
+import logging
+import pandas as pd
+
+logging.basicConfig(
+    level=logging.INFO,
+    filename="backend.log",
+    filemode="a",
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
 
 def fetch_stock_data(
-    ticker: str,
-    period: str = "1y",
-    interval="1d",
-) -> dict[str, dict[str, dict[str, float]]]:
-    """Fetches stock data for a given ticker symbol or list of ticker symbols."""
-    data = {}
-    stock_data = yf.download(
-        tickers=ticker, period=period, interval=interval, group_by="ticker"
-    )
+    ticker: str, period: str = "1y", interval: str = "1d", is_prediction: bool = False
+) -> dict:
+    """
+    Fetches stock data for a given ticker symbol
 
-    ticker_data = stock_data[ticker].reset_index().to_dict(orient="list")
-    data[ticker] = {}
-    for key, values in ticker_data.items():
-        if key == 'Date' or key == 'Datetime':
-            continue
-        try:
-            data[ticker][key] = {str(date): value for date, value in zip(ticker_data['Date'], values)}
-        except KeyError:
-            data[ticker][key] = {str(date): value for date, value in zip(ticker_data['Datetime'], values)}
-        except Exception as e:
-            print(f"Error: {e}")
-            print(f"Key: {key}")
-            print(f"Values: {values}")
-            print(f"Data: {ticker_data}")
-            print(f"Data keys: {ticker_data.keys()}")
-            print(f"Data values: {ticker_data.values()}")                
-            raise e
-    return data
+    Args:
+        ticker: Stock ticker symbol
+        period: Time period to fetch
+        interval: Time interval between data points
+        is_prediction: Whether data is for prediction
+    Returns:
+        Dictionary with stock data formatted for frontend/model
+    """
 
+    try:
+        stock_data = yf.download(
+            tickers=ticker, period=period, interval=interval, group_by="ticker"
+        )
 
-# def fetch_multiple_stock_data(
-#     tickers: list[str],
-#     period: str = "1y",
-#     interval: str = "1d",
-# ) -> dict[str, pd.DataFrame]:
-#     data = {}
-#     for ticker in tickers:
-#         stock_data = fetch_stock_data(ticker, period, interval)
-#         # Convert DataFrame to a list of dictionaries and convert numpy types to native Python types
-#         data[ticker] = stock_data.reset_index().to_dict(orient="records")
-#     return data
+        if stock_data.empty:
+            raise ValueError(f"No data available for ticker {ticker}")
+
+        logger.info(
+            f"length of data: {len(stock_data)} for period {period} and interval {interval}"
+        )
+        result = {ticker: {}}
+        for column in ["Open", "High", "Low", "Close", "Volume"]:
+            result[ticker][column] = {
+                str(date): float(value)
+                for date, value in zip(stock_data.index, stock_data[(ticker, column)])
+                if pd.notna(value)
+            }
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Error fetching data for ticker(s) {ticker}: {str(e)}")
+        raise
