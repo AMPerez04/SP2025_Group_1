@@ -44,3 +44,4 @@ export const periodIntervalMap: Record<Period, readonly Interval[]> = {
     "max": ["1mo"],
     get ytd() { return getYtdIntervals(); }
 } as const;
+

@@ -89,7 +89,7 @@ export default function Page() {
             <div className="flex justify-center">
               <Card className="col-span-2 lg:col-span-4 w-full">
                 <CardHeader>
-                  <CardTitle>Overview</CardTitle>
+                  <CardTitle>Price</CardTitle>
                 </CardHeader>
                 <CardContent className="pl-2">
                   <TimePeriodSelector />

@@ -3,8 +3,7 @@ import { createChart, ISeriesApi, LineData, UTCTimestamp, AreaSeriesPartialOptio
 import { useStore } from '../../../../zustand/store';
 import { Interval } from '../../../../lib/utils';
 const intradayIntervals: Interval[] = ["1m", "5m", "15m", "30m", "1h"] as const;
-// Add interface for financial data item
-interface FinancialDataItem {
+export interface FinancialDataItem {
     time: number;
     value: number;
 }
@@ -70,13 +69,13 @@ const ForecastChart: React.FC = () => {
             areaSeries.setData(data);
             if (forecast && !error) {
                 const lastDate = financialData[selectedAsset][financialData[selectedAsset].length - 1].time;
-                const lastDateObj = new Date(lastDate * 1000); // Convert UNIX timestamp to Date object
+                const lastDateObj = new Date(lastDate * 1000);
 
                 const forecastData: LineData[] = Object.keys(forecast).map((key, index) => {
                     const forecastDate = new Date(lastDateObj);
-                    forecastDate.setDate(forecastDate.getDate() + (index + 1)); // Increment by one day
+                    forecastDate.setDate(forecastDate.getDate() + (index + 1));
                     return {
-                        time: Math.floor(forecastDate.getTime() / 1000) as UTCTimestamp, // Convert back to UNIX timestamp
+                        time: Math.floor(forecastDate.getTime() / 1000) as UTCTimestamp,
                         value: forecast[key],
                     };
                 });

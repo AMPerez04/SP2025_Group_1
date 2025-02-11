@@ -64,6 +64,17 @@ interface Store {
   setSelectedAsset: (asset: string) => void;
 }
 
+interface DashboardState {
+  selectedAsset: string;
+  dailyChange: number;
+  weeklyChange: number;
+  monthlyChange: number;
+  yearlyChange: number;
+  volume: number;
+  marketCap: number;
+  peRatio: number;
+}
+
 export const useStore = create<Store>((set, get) => ({
   user: {
     ID: "67a2e2ca7d35e6dfd35f3b17",
