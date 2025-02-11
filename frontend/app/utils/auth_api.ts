@@ -59,6 +59,7 @@ export async function signup(email: string, username: string, password: string):
       const errorData = await res.json();
       throw new Error(errorData.detail || res.statusText || "Signup failed");
     }
+    
   
     return res.json();
   }

@@ -24,6 +24,8 @@ export default function Page() {
   // Get the setUser method from our Zustand store.
   const setUser = useStore((state) => state.setUser);
 
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
   // Next.js router for redirection.
   const router = useRouter();
 
@@ -60,6 +62,12 @@ export default function Page() {
 
     // Clear any previous error message.
     setErrorMessage(null);
+
+    // Validate email format
+    if (!emailRegex.test(email)) {
+      setErrorMessage("Please enter a valid email address.");
+      return;
+    }
 
     try {
       if (mode === "login") {
