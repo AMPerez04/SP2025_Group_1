@@ -231,8 +231,12 @@ class UserLogin(BaseModel):
 
 @app.post("/signup")
 async def signup(user: UserSignup):
+    # Convert the email to lowercase before checking and inserting
+    email_lower = user.email.lower()
+
+
     # Check if a user with the same email already exists.
-    existing_user = users.find_one({"email": user.email})
+    existing_user = users.find_one({"email": email_lower})
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -241,7 +245,7 @@ async def signup(user: UserSignup):
     # Hash the password (in production, never store plain-text passwords)
     hashed_password = pwd_context.hash(user.password)
     new_user = {
-        "email": user.email,
+        "email": email_lower,
         "username": user.username,
         "password": hashed_password
     }
@@ -253,8 +257,10 @@ async def signup(user: UserSignup):
 
 @app.post("/login")
 async def login(request: Request, user: UserLogin):
+    email_lower = user.email.lower()
+
     # Find the user in the database
-    existing_user = users.find_one({"email": user.email})
+    existing_user = users.find_one({"email": email_lower})
     if not existing_user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
