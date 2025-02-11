@@ -54,7 +54,7 @@ export default function Page() {
           name: data.user.username,
           avatar: "", // add an avatar URL if available
         });
-        router.push("/survey");
+        router.push("/dashboard");
       } else {
 
         // Signup mode
