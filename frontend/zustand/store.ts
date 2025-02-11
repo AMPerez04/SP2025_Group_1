@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+export const BACKEND_URL = "http://localhost:8000"
+
 interface User {
   ID: string;
   email: string;
@@ -37,6 +39,7 @@ interface Store {
   // user info
   user: User;
   setUser: (newUser: User) => void;
+  resetUser: () => void;
 
   // watchlist items
   watchlist: WatchlistItem[];
@@ -62,12 +65,21 @@ interface Store {
 
 export const useStore = create<Store>((set, get) => ({
   user: {
-    ID: "67a2e2ca7d35e6dfd35f3b13",
-    email: "jd@wustl.edu",
+    ID: "",
+    email: "",
     avatar: "",
-    name: "John Doe",
+    name: "",
   },
   setUser: (newUser) => set({ user: newUser }),
+  resetUser: () =>
+    set({
+      user: {
+        ID: "",
+        email: "",
+        avatar: "",
+        name: "",
+      },
+    }),
 
   watchlist: [],
   setWatchlist: (newWatchlist) => {
@@ -89,7 +101,9 @@ export const useStore = create<Store>((set, get) => ({
   // gets user's watchlist
   getWatchList: async (ID) => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/watchlist/${ID}`);
+      const response = await fetch(`${BACKEND_URL}/watchlist/${ID}`, {
+        credentials: "include",
+      });
       const data = await response.json();
       const tickers = data.Tickers || [];
 
@@ -116,9 +130,10 @@ export const useStore = create<Store>((set, get) => ({
   addToWatchlist: async (ticker, fullname, icon, market_name, market_logo) => {
     try {
       const { ID } = get().user;
-      const response = await fetch("http://127.0.0.1:8000/watchlist/add", {
+      const response = await fetch(`${BACKEND_URL}/watchlist/add`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           ID: ID,
           Ticker: ticker,
@@ -140,9 +155,10 @@ export const useStore = create<Store>((set, get) => ({
   removeFromWatchlist: async (ticker) => {
     try {
       const { ID } = get().user;
-      const response = await fetch("http://127.0.0.1:8000/watchlist/remove", {
+      const response = await fetch(`${BACKEND_URL}/watchlist/remove`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ ID: ID, Ticker: ticker }),
       });
       const data = await response.json();
@@ -177,7 +193,10 @@ export const useStore = create<Store>((set, get) => ({
     if (searchQuery.length < 1) return;
     try {
       const response = await fetch(
-        `http://127.0.0.1:8000/search?query=${searchQuery}`
+        `${BACKEND_URL}/search?query=${searchQuery}`,
+        {
+          credentials: "include",
+        }
       );
       const data = await response.json();
       set({ assets: data });
@@ -190,3 +209,4 @@ export const useStore = create<Store>((set, get) => ({
   selectedAsset: null,
   setSelectedAsset: (asset) => set({ selectedAsset: asset }),
 }));
+

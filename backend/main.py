@@ -1,10 +1,13 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from starlette.middleware.sessions import SessionMiddleware
+from fastapi import Request
+from pydantic import BaseModel, EmailStr
 from pymongo import MongoClient
 from bson import ObjectId
 from dotenv import load_dotenv
 from typing import Optional
+from passlib.context import CryptContext
 import os
 import time
 
@@ -19,10 +22,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Adds session middleware to store session data in a cookie
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SESSION_SECRET_KEY", "super-secret-key"),
+    session_cookie="session",  # name of the cookie
+    https_only=False,          # false for development; true in production with HTTPS
+    max_age=86400,             # persist for one day (86400 seconds)
+    same_site="lax"            # or "strict", depending on your needs
+)
 # MongoDB connection
 client = MongoClient(os.getenv("MONGO_URI"))
 db = client["stock_dashboard"]
 
+# Create a password hashing context (using bcrypt)
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 @app.get("/")
 def read_root():
@@ -198,6 +212,90 @@ async def remove_from_watchlist(request: WatchlistRequest):
 
     except Exception:
         return {"success": False}
+    
+    
+# ==============================================================================================================
+# Authentication Endpoints (Login & Signup)
+# ==============================================================================================================
+
+users = db["users"] # db collection w/ user info
+
+class UserSignup(BaseModel):
+    email: EmailStr
+    username: str
+    password: str
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+@app.post("/signup")
+async def signup(user: UserSignup):
+    # Check if a user with the same email already exists.
+    existing_user = users.find_one({"email": user.email})
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User with this email already exists."
+        )
+    # Hash the password (in production, never store plain-text passwords)
+    hashed_password = pwd_context.hash(user.password)
+    new_user = {
+        "email": user.email,
+        "username": user.username,
+        "password": hashed_password
+    }
+    result = users.insert_one(new_user)
+    return {
+        "message": "User created successfully.",
+        "user_id": str(result.inserted_id)
+    }
+
+@app.post("/login")
+async def login(request: Request, user: UserLogin):
+    # Find the user in the database
+    existing_user = users.find_one({"email": user.email})
+    if not existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found."
+        )
+    if not pwd_context.verify(user.password, existing_user["password"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials."
+        )
+    # Store user information in the session
+    request.session.update({
+        "user": {
+            "email": existing_user["email"],
+            "username": existing_user["username"],
+            "user_id": str(existing_user["_id"]),
+        }
+    })
+    return {
+        "message": "Login successful.",
+        "user": {
+            "email": existing_user["email"],
+            "username": existing_user["username"],
+            "user_id": str(existing_user["_id"]),
+        }
+    }
+    
+@app.post("/logout")
+async def logout(request: Request):
+    # Clear the session
+    request.session.clear()
+    return {"message": "Logged out successfully."}
+
+@app.get("/session")
+async def get_session(request: Request):
+    # If the user is logged in, the session will contain user data.
+    user = request.session.get("user")
+    if user:
+        return {"user": user}
+    else:
+        return {"user": None}
 
 
 # ================================================================================================================================
