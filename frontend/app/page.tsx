@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect} from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/zustand/store"; // adjust as needed
 import { login, signup } from "@/app/utils/auth_api"; // adjust the path as needed
+import { BACKEND_URL } from "@/zustand/store";
 
 export default function Page() {
   // Toggle between "login" and "signup" mode.
@@ -25,6 +26,24 @@ export default function Page() {
 
   // Next.js router for redirection.
   const router = useRouter();
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/session`, {
+          credentials: "include",
+        });
+        const data = await res.json();
+        if (data.user) {
+          router.push("/dashboard");
+        }
+      } catch (err) {
+        console.error("Error fetching session:", err);
+      }
+    };
+
+    fetchSession();
+  }, [setUser, router]);
 
   const toggleMode = () => {
     setMode((prev) => (prev === "login" ? "signup" : "login"));
