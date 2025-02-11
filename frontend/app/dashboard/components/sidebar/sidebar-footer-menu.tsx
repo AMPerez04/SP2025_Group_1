@@ -20,12 +20,37 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { useStore } from "@/zustand/store";
+import { useStore, BACKEND_URL } from "@/zustand/store";
+import { useRouter } from "next/navigation";
 
 export default function SidebarFooterMenu() {
   const { isMobile } = useSidebar();
-  const { user } = useStore();
+  const { user, resetUser } = useStore();
+  const router = useRouter()
 
+  const handleLogout = async () => {
+    try {
+      // Call the backend logout endpoint.
+      const res = await fetch(`${BACKEND_URL}/logout`, {
+        method: "POST",
+        credentials: "include", // ensures cookies are sent/received
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+  
+      if (res.ok) {
+        // Reset local state and redirect if logout succeeded.
+        resetUser();
+        router.push('/');
+      } else {
+        console.error("Logout failed:", res.statusText);
+      }
+    } catch (error) {
+      console.error("Error during logout:", error);
+    }
+  };
+  
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -81,7 +106,7 @@ export default function SidebarFooterMenu() {
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onSelect={handleLogout}>
               <LogOut />
               Log out
             </DropdownMenuItem>

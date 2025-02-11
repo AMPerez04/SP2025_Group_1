@@ -3,86 +3,84 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useStore } from "@/zustand/store"; // adjust the import path as needed
+import { useStore } from "@/zustand/store"; // adjust as needed
+import { login, signup } from "@/app/utils/auth_api"; // adjust the path as needed
 
 export default function Page() {
   // Toggle between "login" and "signup" mode.
   const [mode, setMode] = useState<"login" | "signup">("login");
+
   // Local state for controlled inputs.
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   // Only needed in signup mode.
   const [username, setUsername] = useState("");
 
+  // Error state to store any error messages.
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   // Get the setUser method from our Zustand store.
   const setUser = useStore((state) => state.setUser);
+
   // Next.js router for redirection.
   const router = useRouter();
 
   const toggleMode = () => {
     setMode((prev) => (prev === "login" ? "signup" : "login"));
-    // Clear the form fields when switching modes.
+
+    // Clear the form fields and error message when switching modes.
     setEmail("");
     setPassword("");
     setUsername("");
+    setErrorMessage(null);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    // Clear any previous error message.
+    setErrorMessage(null);
+
     try {
       if (mode === "login") {
-        // Call the login endpoint.
-        const res = await fetch("http://127.0.0.1:8000/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
-        });
+        // Call login API from auth_api.ts
+        const data = await login(email, password);
 
-        if (res.ok) {
-          const data = await res.json();
-          // The backend returns: { message, user: { email, username, user_id } }
-          setUser({
-            ID: data.user.user_id,
-            email: data.user.email,
-            name: data.user.username,
-            avatar: "", // Add an avatar URL if available
-          });
-          console.log("Login successful");
-          // Optionally, redirect after login:
-          router.push("/survey");
-        } else {
-          const errorData = await res.json();
-          console.error("Login failed:", errorData.detail || res.statusText);
-        }
+        // The backend returns: { message, user: { email, username, user_id } }
+        setUser({
+          ID: data.user.user_id,
+          email: data.user.email,
+          name: data.user.username,
+          avatar: "", // add an avatar URL if available
+        });
+        console.log("Login successful");
+        router.push("/survey");
       } else {
-        // Signup mode
-        const res = await fetch("http://127.0.0.1:8000/signup", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, username, password }),
-        });
 
-        if (res.ok) {
-          const data = await res.json();
-          // The backend returns: { message, user_id }
-          setUser({
-            ID: data.user_id,
-            email: email,
-            name: username,
-            avatar: "",
-          });
-          console.log("Signup successful");
-          // Optionally, redirect after signup:
-          router.push("/survey");
+        // Signup mode
+        await signup(email, username, password);
+
+        // After successful signup, automatically log the user in.
+        const data = await login(email, password);
+        setUser({
+          ID: data.user.user_id,
+          email: data.user.email,
+          name: data.user.username,
+          avatar: "",
+        });
+        console.log("Signup and login successful");
+        router.push("/survey");
+      }
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+          setErrorMessage(err.message || "An unexpected error occurred. Please try again.");
+          console.error("Auth error:", err);
         } else {
-          const errorData = await res.json();
-          console.error("Signup failed:", errorData.detail || res.statusText);
+          setErrorMessage("An unexpected error occurred. Please try again.");
+          console.error("Auth error:", err);
         }
       }
-    } catch (err) {
-      console.error("Error during auth:", err);
-    }
   };
 
   return (
@@ -113,13 +111,20 @@ export default function Page() {
           </p>
         </div>
 
+        {/* Display Error Message */}
+        {errorMessage && (
+          <div className="text-red-500 text-center font-semibold">
+            {errorMessage}
+          </div>
+        )}
+
         {/* Email Input */}
         <div className="relative pt-[0.9375rem] mb-2">
           <input
             type="email"
             id="email"
             name="email"
-            placeholder=" " // non-empty placeholder needed for :placeholder-shown
+            placeholder=""
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}

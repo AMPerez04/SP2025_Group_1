@@ -1,6 +1,7 @@
+import { BACKEND_URL } from "@/zustand/store";
 export const getSectors = async () => {
   try {
-    const response = await fetch("http://localhost:8000/survey/sectors");
+    const response = await fetch(`${BACKEND_URL}/survey/sectors`);
     if (!response.ok) throw new Error("ERROR: Unable to fetch sectors.");
     const data = await response.json();
     return data;
@@ -11,8 +12,9 @@ export const getSectors = async () => {
 
 export const submitSurvey = async (ID: string, selected: string[]) => {
   try {
-    await fetch("http://localhost:8000/survey", {
+    await fetch(`${BACKEND_URL}/survey`, {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
       },

@@ -44,5 +44,5 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # Start the FastAPI server
-uvicorn main:app --reload
+uvicorn main:app --host localhost --port 8000 --reload
 ```
