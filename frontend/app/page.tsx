@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect} from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/zustand/store"; // adjust as needed
@@ -83,7 +83,6 @@ export default function Page() {
         });
         router.push("/dashboard");
       } else {
-
         // Signup mode
         await signup(email, username, password);
 
@@ -98,14 +97,16 @@ export default function Page() {
         router.push("/survey");
       }
     } catch (err: unknown) {
-        if (err instanceof Error) {
-          setErrorMessage(err.message || "An unexpected error occurred. Please try again.");
-          console.error("Auth error:", err);
-        } else {
-          setErrorMessage("An unexpected error occurred. Please try again.");
-          console.error("Auth error:", err);
-        }
+      if (err instanceof Error) {
+        setErrorMessage(
+          err.message || "An unexpected error occurred. Please try again."
+        );
+        console.error("Auth error:", err);
+      } else {
+        setErrorMessage("An unexpected error occurred. Please try again.");
+        console.error("Auth error:", err);
       }
+    }
   };
 
   return (
