@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { DollarSign, Search } from "lucide-react";
+import { DollarSign, Search, ShieldAlert, TriangleAlert } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   CommandItem,
@@ -19,7 +19,7 @@ export function SearchBar() {
   const [commandOpen, setCommandOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const { state } = useSidebar();
-  const { assets, getAssets, watchlist, addToWatchlist } = useStore(
+  const { assets, getAssets, watchlist, addToWatchlist, setError } = useStore(
     (state) => state
   );
 
@@ -92,15 +92,49 @@ export function SearchBar() {
                           asset.icon,
                           asset.market_name,
                           asset.market_logo
-                        );
+                        ).then(() => {
+                          const storeError = useStore.getState().errorMessage;
 
-                        toast(`${asset.ticker} was added to your watchlist`, {
+                          if (!storeError) {
+                            // success toast notification: asset added to watchlist
+                            toast(
+                              `${asset.ticker} was added to your watchlist`,
+                              {
+                                style: {
+                                  borderLeft: "7px solid #2d9c41",
+                                },
+                                position: "bottom-right",
+                                description: asset.full_name,
+                                icon: <DollarSign width={35} />,
+                                duration: 2000,
+                              }
+                            );
+                          } else {
+                            // error toast notification: asset not added to watchlist
+                            toast.error("ERROR", {
+                              description: storeError,
+                              style: {
+                                borderLeft: "7px solid #d32f2f",
+                              },
+                              position: "bottom-right",
+                              icon: <TriangleAlert width={35} />,
+                              duration: 2000,
+                            });
+
+                            // clear error message
+                            setError("");
+                          }
+                        });
+                      } else {
+                        // warning toast notification: asset already in watchlist
+                        toast(`${asset.ticker} is already in your watchlist`, {
                           style: {
-                            borderLeft: "7px solid #2d9c41",
+                            borderLeft: "7px solid hsl(var(--primary))",
                           },
                           position: "bottom-right",
                           description: asset.full_name,
-                          icon: <DollarSign width={25} />,
+                          icon: <ShieldAlert width={35} />,
+                          duration: 2000,
                         });
                       }
                     }}

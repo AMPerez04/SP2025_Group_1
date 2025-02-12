@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export const BACKEND_URL = "http://localhost:8000"
+export const BACKEND_URL = "http://localhost:8000";
 
 interface User {
   ID: string;
@@ -61,6 +61,10 @@ interface Store {
 
   selectedAsset: SelectedAsset | null;
   setSelectedAsset: (asset: SelectedAsset) => void;
+
+  // toast notification error message
+  errorMessage: string;
+  setError: (errorMessage: string) => void;
 }
 
 export const useStore = create<Store>((set, get) => ({
@@ -144,11 +148,15 @@ export const useStore = create<Store>((set, get) => ({
         }),
       });
       const data = await response.json();
+
       if (data.Tickers) {
         await get().getWatchList(ID);
+      } else {
+        throw new Error("ERROR: Unable to add ticker to watchlist");
       }
     } catch (error) {
       console.error("ERROR: Unable to add ticker to watchlist:", error);
+      get().setError(`Unable to add $${ticker} to your watchlist`);
     }
   },
   // removes asset from user's watchlist
@@ -180,9 +188,12 @@ export const useStore = create<Store>((set, get) => ({
               : null,
           });
         }
+      } else {
+        throw new Error("ERROR: Unable to remove ticker from watchlist");
       }
     } catch (error) {
       console.error("ERROR: Unable to remove from watchlist:", error);
+      get().setError(`Unable to remove $${ticker} from your watchlist`);
     }
   },
 
@@ -208,5 +219,7 @@ export const useStore = create<Store>((set, get) => ({
 
   selectedAsset: null,
   setSelectedAsset: (asset) => set({ selectedAsset: asset }),
-}));
 
+  errorMessage: "",
+  setError: (errorMessage) => set({ errorMessage }),
+}));

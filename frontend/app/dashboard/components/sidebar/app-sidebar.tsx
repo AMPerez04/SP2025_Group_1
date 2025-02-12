@@ -20,7 +20,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   // initial fetch of watchlist
   useEffect(() => {
-    getWatchList(user.ID);
+    if (user.ID) {
+      getWatchList(user.ID);
+    }
   }, [getWatchList, user.ID]);
 
   return (
