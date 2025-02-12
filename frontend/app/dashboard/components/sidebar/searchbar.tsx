@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search } from "lucide-react";
+import { DollarSign, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   CommandItem,
@@ -13,12 +13,15 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { useStore } from "@/zustand/store";
+import { toast } from "sonner";
 
 export function SearchBar() {
   const [commandOpen, setCommandOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const { state } = useSidebar();
-  const { assets, addToWatchlist, getAssets } = useStore((state) => state);
+  const { assets, getAssets, watchlist, addToWatchlist } = useStore(
+    (state) => state
+  );
 
   // autocomplete search results
   useEffect(() => {
@@ -79,15 +82,28 @@ export function SearchBar() {
                 <CommandItem key={asset.ticker} className="p-2">
                   <div
                     className="grid grid-cols-6 gap-4 items-center"
-                    onClick={() =>
-                      addToWatchlist(
-                        asset.ticker,
-                        asset.full_name,
-                        asset.icon,
-                        asset.market_name,
-                        asset.market_logo
-                      )
-                    }
+                    onClick={() => {
+                      if (
+                        !watchlist.some((item) => item.Ticker === asset.ticker)
+                      ) {
+                        addToWatchlist(
+                          asset.ticker,
+                          asset.full_name,
+                          asset.icon,
+                          asset.market_name,
+                          asset.market_logo
+                        );
+
+                        toast(`${asset.ticker} was added to your watchlist`, {
+                          style: {
+                            borderLeft: "7px solid #2d9c41",
+                          },
+                          position: "bottom-right",
+                          description: asset.full_name,
+                          icon: <DollarSign width={25} />,
+                        });
+                      }
+                    }}
                   >
                     {/* asset's icon & ticker */}
                     <div className="flex items-center justify-start">

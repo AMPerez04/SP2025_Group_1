@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Trash2, BadgeDollarSign } from "lucide-react";
+import { Trash2, BadgeDollarSign, DollarSign } from "lucide-react";
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -11,6 +11,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { useStore } from "@/zustand/store";
+import { toast } from "sonner";
 
 export default function SidebarItems() {
   const { watchlist, removeFromWatchlist, setSelectedAsset, selectedAsset } =
@@ -48,7 +49,17 @@ export default function SidebarItems() {
             </SidebarMenuButton>
             <SidebarMenuAction
               showOnHover
-              onClick={() => removeFromWatchlist(item.Ticker)}
+              onClick={() => {
+                removeFromWatchlist(item.Ticker);
+                toast(`${item.Ticker} was removed from your watchlist`, {
+                  style: {
+                    borderLeft: "7px solid #e22e29",
+                  },
+                  position: "bottom-right",
+                  description: item.FullName,
+                  icon: <DollarSign width={25} />,
+                });
+              }}
             >
               <Trash2 />
             </SidebarMenuAction>
