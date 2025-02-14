@@ -2,7 +2,13 @@
 
 import React from "react";
 import { CaretSortIcon } from "@radix-ui/react-icons";
-import { LogOut, Settings, Lightbulb } from "lucide-react";
+import {
+  LogOut,
+  Settings,
+  Lightbulb,
+  UserCog,
+  TriangleAlert,
+} from "lucide-react";
 import initials from "initials";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -22,11 +28,12 @@ import {
 } from "@/components/ui/sidebar";
 import { useStore, BACKEND_URL } from "@/zustand/store";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function SidebarFooterMenu() {
   const { isMobile } = useSidebar();
-  const { user, resetUser } = useStore();
-  const router = useRouter()
+  const { user, resetUser, setError } = useStore((state) => state);
+  const router = useRouter();
 
   const handleLogout = async () => {
     try {
@@ -38,19 +45,53 @@ export default function SidebarFooterMenu() {
           "Content-Type": "application/json",
         },
       });
-  
+
       if (res.ok) {
         // Reset local state and redirect if logout succeeded.
         resetUser();
-        router.push('/');
+        router.push("/");
       } else {
-        console.error("Logout failed:", res.statusText);
+        throw new Error("ERROR: Failed logout");
       }
     } catch (error) {
-      console.error("Error during logout:", error);
+      console.error("ERROR: Failed logout:", error);
+      setError(`Unable to log out`);
+    }
+
+    const storeError = useStore.getState().errorMessage;
+
+    if (!storeError) {
+      // success toast notification: user logged out
+      toast("Logged out successfully", {
+        description: "Your data has been saved",
+        style: {
+          borderLeft: "7px solid #2d9c41",
+        },
+        position: "bottom-right",
+        icon: <UserCog width={30} />,
+        duration: 2000,
+      });
+    } else {
+      // error toast notification: user not logged out
+      toast.error("ERROR", {
+        description: storeError,
+        style: {
+          borderLeft: "7px solid #d32f2f",
+        },
+        position: "bottom-right",
+        icon: <TriangleAlert width={30} />,
+        cancel: {
+          label: "Try again",
+          onClick: () => handleLogout(),
+        },
+        duration: 2000,
+      });
+
+      // clear error message
+      setError("");
     }
   };
-  
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -106,7 +147,11 @@ export default function SidebarFooterMenu() {
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={handleLogout}>
+            <DropdownMenuItem
+              onSelect={() => {
+                handleLogout();
+              }}
+            >
               <LogOut />
               Log out
             </DropdownMenuItem>

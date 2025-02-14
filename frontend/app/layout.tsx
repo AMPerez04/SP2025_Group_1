@@ -1,8 +1,8 @@
 import React from "react";
 import AppInitializer from "./utils/AppInitializer";
-
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { Toaster } from "@/components/ui/sonner";
 
 import "./globals.css";
 // import { StyledEngineProvider } from "@mui/material/styles";
@@ -22,9 +22,10 @@ export default function RootLayout({
     <html lang="en">
       {/* <StyledEngineProvider injectFirst> */}
       <body className={`${inter.className} min-h-screen`}>
-        <AppInitializer/>
+        <AppInitializer />
+        <Toaster />
         {children}
-        </body>
+      </body>
       {/* </StyledEngineProvider> */}
     </html>
   );

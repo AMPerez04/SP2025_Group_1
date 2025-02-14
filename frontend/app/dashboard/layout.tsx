@@ -1,7 +1,6 @@
 "use client";
 
 import React, { ReactNode } from "react";
-
 import { AppSidebar } from "@/app/dashboard/components/sidebar/app-sidebar";
 import {
   Breadcrumb,
