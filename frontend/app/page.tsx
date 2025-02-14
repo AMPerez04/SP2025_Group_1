@@ -3,31 +3,24 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useStore } from "@/zustand/store"; // adjust as needed
-import { login, signup } from "@/app/utils/auth_api"; // adjust the path as needed
+import { useStore } from "@/zustand/store";
+import { login, signup } from "@/app/utils/auth_api";
 import { BACKEND_URL } from "@/zustand/store";
+import { toast } from "sonner";
+import { TriangleAlert } from "lucide-react";
 
 export default function Page() {
   // Toggle between "login" and "signup" mode.
   const [mode, setMode] = useState<"login" | "signup">("login");
-
-  // Local state for controlled inputs.
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   // Only needed in signup mode.
   const [username, setUsername] = useState("");
-
-  // Error state to store any error messages.
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
   // Get the setUser method from our Zustand store.
   const setUser = useStore((state) => state.setUser);
-
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-  // Next.js router for redirection.
   const router = useRouter();
+  const { setError } = useStore((state) => state);
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -54,58 +47,77 @@ export default function Page() {
     setEmail("");
     setPassword("");
     setUsername("");
-    setErrorMessage(null);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // Clear any previous error message.
-    setErrorMessage(null);
-
     // Validate email format
     if (!emailRegex.test(email)) {
-      setErrorMessage("Please enter a valid email address.");
+      toast.error("ERROR", {
+        description: "Please enter a valid email address",
+        style: { borderLeft: "7px solid #d32f2f" },
+        position: "bottom-right",
+        icon: <TriangleAlert width={30} />,
+        duration: 2000,
+      });
       return;
     }
 
     try {
+      let data;
       if (mode === "login") {
-        // Call login API from auth_api.ts
-        const data = await login(email, password);
-
-        // The backend returns: { message, user: { email, username, user_id } }
-        setUser({
-          ID: data.user.user_id,
-          email: data.user.email,
-          name: data.user.username,
-          avatar: "", // add an avatar URL if available
-        });
-        router.push("/dashboard");
+        data = await login(email, password);
       } else {
-        // Signup mode
         await signup(email, username, password);
+        data = await login(email, password);
+      }
 
-        // After successful signup, automatically log the user in.
-        const data = await login(email, password);
-        setUser({
-          ID: data.user.user_id,
-          email: data.user.email,
-          name: data.user.username,
-          avatar: "",
-        });
-        router.push("/survey");
+      if (!data) {
+        if (mode === "login") {
+          throw new Error("ERROR: Unable to login");
+        } else {
+          throw new Error("ERROR: Unable to sign up");
+        }
       }
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setErrorMessage(
-          err.message || "An unexpected error occurred. Please try again."
-        );
-        console.error("Auth error:", err);
+
+      setUser({
+        ID: data.user.user_id,
+        email: data.user.email,
+        name: data.user.username,
+        avatar: "",
+      });
+      router.push(mode === "login" ? "/dashboard" : "/survey");
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setError(error.message || "An unexpected error occurred");
       } else {
-        setErrorMessage("An unexpected error occurred. Please try again.");
-        console.error("Auth error:", err);
+        setError("An unexpected error occurred");
       }
+      const reason = mode === "login" ? "login" : "sign up";
+      console.error(`ERROR: Unable to ${reason}:, ${error}`);
+    }
+
+    const storeError = useStore.getState().errorMessage;
+
+    if (storeError) {
+      // error toast notification: user not logged in/signed up
+      toast.error("ERROR", {
+        description: storeError,
+        style: {
+          borderLeft: "7px solid #d32f2f",
+        },
+        position: "bottom-right",
+        icon: <TriangleAlert width={30} />,
+        cancel: {
+          label: "Try again",
+          onClick: () => handleSubmit(e),
+        },
+        duration: 2000,
+      });
+
+      // clear error message
+      setError("");
     }
   };
 
@@ -137,13 +149,6 @@ export default function Page() {
               : "Please fill in your details to sign up!"}
           </p>
         </div>
-
-        {/* Display Error Message */}
-        {errorMessage && (
-          <div className="text-red-500 text-center font-semibold">
-            {errorMessage}
-          </div>
-        )}
 
         {/* Additional Field for Signup */}
         {mode === "signup" && (
