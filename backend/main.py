@@ -227,9 +227,12 @@ class UserSignup(BaseModel):
     username: str
     password: str
 
-
 class UserLogin(BaseModel):
     email: EmailStr
+    password: str
+class SettingsUpdateRequest(BaseModel):
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
     password: str
 
 
@@ -300,6 +303,60 @@ async def get_session(request: Request):
         return {"user": user}
     else:
         return {"user": None}
+    
+@app.post("/update-settings")
+async def update_settings(request: Request, update: SettingsUpdateRequest):
+    """
+    Endpoint for updating the user's account settings (username and/or email).
+    Requires that the user is logged in (session) and provides their password for confirmation.
+    """
+    # Ensure the user is authenticated.
+    session_user = request.session.get("user")
+    if not session_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not authenticated."
+        )
+
+    user_id = session_user["user_id"]
+    user_doc = users.find_one({"_id": ObjectId(user_id)})
+    if not user_doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found."
+        )
+
+    # Verify the provided password.
+    if not pwd_context.verify(update.password, user_doc["password"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect password."
+        )
+
+    # Build a dict of fields to update.
+    update_fields = {}
+    if update.username and update.username != user_doc["username"]:
+        update_fields["username"] = update.username
+    if update.email and update.email != user_doc["email"]:
+        # Optionally, check if the new email is already in use.
+        if users.find_one({"email": update.email}):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already in use."
+            )
+        update_fields["email"] = update.email
+
+    if not update_fields:
+        return {"message": "No changes made."}
+
+    # Update the user's document.
+    users.update_one({"_id": ObjectId(user_id)}, {"$set": update_fields})
+
+    # Update the session with new info.
+    session_user.update(update_fields)
+    request.session["user"] = session_user
+
+    return {"message": "Settings updated successfully.", "user": session_user}    
 
 
 # ================================================================================================================================
