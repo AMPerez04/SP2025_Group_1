@@ -39,6 +39,13 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 
+interface SettingsPayload {
+  password: string;
+  username?: string;
+  email?: string;
+  new_password?: string;
+}
+
 export default function SidebarFooterMenu() {
   const { isMobile } = useSidebar();
   const { user, resetUser, setError, setUser } = useStore((state) => state);
@@ -48,14 +55,14 @@ export default function SidebarFooterMenu() {
   const [openSettingsModal, setOpenSettingsModal] = useState(false);
 
   // Controls which field is being edited. When null, we show info.
-  const [editingField, setEditingField] = useState<"username" | "email" | null>(
-    null
-  );
+  const [editingField, setEditingField] = useState<"username" | "email" | "password" | null>(null);
+
 
   // Form state for updating settings.
   const [newUsername, setNewUsername] = useState(user.name);
   const [newEmail, setNewEmail] = useState(user.email);
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState(""); // for password updates
 
   const handleLogout = async () => {
     try {
@@ -114,61 +121,68 @@ export default function SidebarFooterMenu() {
     }
   };
 
-  // Handle submission for updating a single field.
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // Build payload based on which field is being updated.
-    let payload: any = { password };
-    if (editingField === "username") {
-      payload.username = newUsername;
-    } else if (editingField === "email") {
-      payload.email = newEmail;
-    }
 
-    try {
-      const res = await fetch(`${BACKEND_URL}/update-settings`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+  
+// Handle submission for updating a single field.
+const handleSave = async (e: React.FormEvent) => {
+  e.preventDefault();
+  // Build payload based on which field is being updated.
+  const payload: SettingsPayload = { password };
+  if (editingField === "username") {
+    payload.username = newUsername;
+  } else if (editingField === "email") {
+    payload.email = newEmail;
+  } else if (editingField === "password") {
+    payload.new_password = newPassword;
+  }
 
-      if (res.ok) {
-        toast("Settings updated successfully", {
-          style: { borderLeft: "7px solid #2d9c41" },
-          position: "bottom-right",
-          icon: <UserCog width={30} />,
-          duration: 2000,
-        });
-        // Update zustand user with the new data.
-        if (editingField === "username") {
-          setUser({ ...user, name: newUsername });
-        } else if (editingField === "email") {
-          setUser({ ...user, email: newEmail });
-        }
-        // Reset editing state and clear password field.
-        setEditingField(null);
-        setPassword("");
-      } else {
-        throw new Error("Update failed");
-      }
-    } catch (error) {
-      console.error("Error updating settings:", error);
-      toast.error("Failed to update settings", {
-        style: { borderLeft: "7px solid #d32f2f" },
+  try {
+    const res = await fetch(`${BACKEND_URL}/update-settings`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) {
+      toast("Settings updated successfully", {
+        style: { borderLeft: "7px solid #2d9c41" },
         position: "bottom-right",
+        icon: <UserCog width={30} />,
         duration: 2000,
       });
+      // Update zustand user if username or email changed.
+      if (editingField === "username") {
+        setUser({ ...user, name: newUsername });
+      } else if (editingField === "email") {
+        setUser({ ...user, email: newEmail });
+      }
+      // For password updates, no need to update the local user.
+      // Reset editing state and clear password fields.
+      setEditingField(null);
+      setPassword("");
+      setNewPassword("");
+    } else {
+      throw new Error("Update failed");
     }
-  };
+  } catch (error) {
+    console.error("Error updating settings:", error);
+    toast.error("Failed to update settings", {
+      style: { borderLeft: "7px solid #d32f2f" },
+      position: "bottom-right",
+      duration: 2000,
+    });
+  }
+};
 
-  // Reset the form and exit edit mode.
-  const cancelEditing = () => {
-    setEditingField(null);
-    setPassword("");
-    setNewUsername(user.name);
-    setNewEmail(user.email);
-  };
+// Reset the form and exit edit mode.
+const cancelEditing = () => {
+  setEditingField(null);
+  setPassword("");
+  setNewPassword("");
+  setNewUsername(user.name);
+  setNewEmail(user.email);
+};
 
   return (
     <>
@@ -245,12 +259,13 @@ export default function SidebarFooterMenu() {
           <DialogHeader>
             <DialogTitle>Account Settings</DialogTitle>
             <DialogDescription>
-              Manage your account details. Select a field below to update it—confirmation via your password is required.
+              Manage your account details. Select a field below to update it—
+              confirmation via your current password is required.
             </DialogDescription>
           </DialogHeader>
 
           {editingField === null ? (
-            // Show current info with action buttons.
+            // Overview: show current info with action buttons.
             <div className="space-y-6">
               <div className="flex flex-col gap-1">
                 <span className="text-sm text-muted-foreground">Username</span>
@@ -276,6 +291,18 @@ export default function SidebarFooterMenu() {
                   </button>
                 </div>
               </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-sm text-muted-foreground">Password</span>
+                <div className="flex items-center justify-between rounded bg-gray-100 p-3">
+                  <span className="text-base font-medium">••••••••</span>
+                  <button
+                    onClick={() => setEditingField("password")}
+                    className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+                  >
+                    Change Password
+                  </button>
+                </div>
+              </div>
               <DialogFooter>
                 <button
                   onClick={() => setOpenSettingsModal(false)}
@@ -286,36 +313,67 @@ export default function SidebarFooterMenu() {
               </DialogFooter>
             </div>
           ) : (
-            // Show the inline form for updating the selected field.
+            // Inline form for updating the selected field.
             <form onSubmit={handleSave} className="space-y-6">
-              <div className="space-y-2">
-                <label className="block text-sm font-medium">
-                  {editingField === "username" ? "New Username" : "New Email"}
-                </label>
-                <input
-                  type={editingField === "email" ? "email" : "text"}
-                  value={editingField === "username" ? newUsername : newEmail}
-                  onChange={(e) =>
-                    editingField === "username"
-                      ? setNewUsername(e.target.value)
-                      : setNewEmail(e.target.value)
-                  }
-                  className="w-full rounded border px-3 py-2"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-sm font-medium">
-                  Confirm Password
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded border px-3 py-2"
-                  required
-                />
-              </div>
+              {editingField === "password" ? (
+                <>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium">
+                      New Password
+                    </label>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full rounded border px-3 py-2"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium">
+                      Current Password
+                    </label>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full rounded border px-3 py-2"
+                      required
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium">
+                    {editingField === "username" ? "New Username" : "New Email"}
+                  </label>
+                  <input
+                    type={editingField === "email" ? "email" : "text"}
+                    value={
+                      editingField === "username" ? newUsername : newEmail
+                    }
+                    onChange={(e) =>
+                      editingField === "username"
+                        ? setNewUsername(e.target.value)
+                        : setNewEmail(e.target.value)
+                    }
+                    className="w-full rounded border px-3 py-2"
+                    required
+                  />
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium">
+                      Confirm Current Password
+                    </label>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full rounded border px-3 py-2"
+                      required
+                    />
+                  </div>
+                </div>
+              )}
               <DialogFooter className="space-x-4">
                 <button
                   type="button"
@@ -324,7 +382,10 @@ export default function SidebarFooterMenu() {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="rounded bg-blue-600 px-4 py-2 text-sm text-white">
+                <button
+                  type="submit"
+                  className="rounded bg-blue-600 px-4 py-2 text-sm text-white"
+                >
                   Save
                 </button>
               </DialogFooter>
