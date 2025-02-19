@@ -145,7 +145,8 @@ const handleSave = async (e: React.FormEvent) => {
     });
 
     if (res.ok) {
-      toast("Settings updated successfully", {
+      toast("Updated successfully", {
+        description: "Your data has been saved",
         style: { borderLeft: "7px solid #2d9c41" },
         position: "bottom-right",
         icon: <UserCog width={30} />,
@@ -167,9 +168,11 @@ const handleSave = async (e: React.FormEvent) => {
     }
   } catch (error) {
     console.error("Error updating settings:", error);
-    toast.error("Failed to update settings", {
+    toast.error("ERROR", {
+      description: "Error updating settings",
       style: { borderLeft: "7px solid #d32f2f" },
       position: "bottom-right",
+      icon: <TriangleAlert width={30} />,
       duration: 2000,
     });
   }
@@ -228,12 +231,11 @@ const cancelEditing = () => {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                <DropdownMenuItem>
+                {/* <DropdownMenuItem>
                   <Lightbulb />
                   Theme
-                </DropdownMenuItem>
+                </DropdownMenuItem> */}
                 <DropdownMenuItem onSelect={() => setOpenSettingsModal(true)}>
                   <Settings />
                   Settings
