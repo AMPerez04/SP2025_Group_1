@@ -5,7 +5,6 @@ import { CaretSortIcon } from "@radix-ui/react-icons";
 import {
   LogOut,
   Settings,
-  Lightbulb,
   UserCog,
   TriangleAlert,
 } from "lucide-react";
