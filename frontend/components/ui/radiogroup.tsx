@@ -37,6 +37,7 @@ const RadioGroup = React.forwardRef<HTMLDivElement, RadioGroupProps>(
     </div>
   )
 );
+RadioGroup.displayName = "RadioGroup";
 
 const RadioItem = React.forwardRef<HTMLButtonElement, RadioItemProps>(
   ({ isSelected, onChange, className, children, ...props }, ref) => (

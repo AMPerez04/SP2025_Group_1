@@ -38,6 +38,15 @@ def fetch_stock_data(
         logger.info(
             f"length of data: {len(stock_data)} for period {period} and interval {interval}"
         )
+        # Convert index to NY timezone
+        if stock_data.index.tz is None:
+            stock_data.index = stock_data.index.tz_localize('UTC')
+        stock_data.index = stock_data.index.tz_convert('America/New_York')
+
+        # Adjust dates for weekly data to show Friday instead of Monday
+        if interval == "1wk":
+            stock_data.index = stock_data.index + pd.Timedelta(days=4)
+
         result = {ticker: {}}
         for column in ["Open", "High", "Low", "Close", "Volume"]:
             result[ticker][column] = {

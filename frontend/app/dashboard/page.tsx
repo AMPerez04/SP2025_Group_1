@@ -18,6 +18,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import AssetHeader from "./components/asset-header";
 
 export default function Page() {
   return (
@@ -26,6 +27,7 @@ export default function Page() {
         <div className="flex-col items-center justify-between space-y-2 md:flex md:flex-row">
           <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         </div>
+        <AssetHeader />
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>

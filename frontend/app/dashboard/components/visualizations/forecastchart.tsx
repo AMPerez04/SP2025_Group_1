@@ -1,15 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import { createChart, ISeriesApi, LineData, UTCTimestamp, AreaSeriesPartialOptions, AreaSeries } from 'lightweight-charts';
-import { useStore } from '../../../../zustand/store';
+import { useStore, TimeSeriesPoint } from '../../../../zustand/store';
 import { Interval } from '../../../../lib/utils';
 const intradayIntervals: Interval[] = ["1m", "5m", "15m", "30m", "1h"] as const;
-export interface FinancialDataItem {
-    time: number;
-    value: number;
-}
+
+
 const ForecastChart: React.FC = () => {
     const chartContainerRef = useRef<HTMLDivElement>(null);
-    const forecast = useStore((state) => state.forecast);
+    const forecastData = useStore((state) => state.forecastData);
     const fetchFinancialData = useStore((state) => state.fetchFinancialData);
     const financialData = useStore((state) => state.financialData);
     const selectedAsset = useStore((state) => state.selectedAsset);
@@ -20,14 +18,15 @@ const ForecastChart: React.FC = () => {
 
     useEffect(() => {
         if (selectedAsset) {
-            fetchFinancialData(selectedAsset, selectedPeriod, selectedInterval);
-            fetchForecast(selectedAsset, selectedPeriod, selectedInterval);
+            fetchFinancialData(selectedAsset.ticker, selectedPeriod, selectedInterval);
+            fetchForecast(selectedAsset.ticker, selectedPeriod, selectedInterval);
         }
     }, [fetchFinancialData, fetchForecast, selectedAsset, selectedPeriod, selectedInterval]);
 
     useEffect(() => {
         if (!chartContainerRef.current) return;
 
+        // Make sure chart is configured to display times correctly
         const chart = createChart(chartContainerRef.current, {
             width: chartContainerRef.current.clientWidth,
             height: 400,
@@ -48,12 +47,16 @@ const ForecastChart: React.FC = () => {
                 rightOffset: 5,
                 fixLeftEdge: true,
                 fixRightEdge: true,
+                tickMarkFormatter: (time:number) => {
+                    const date = new Date(time * 1000);
+                    return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                }
             },
         });
 
 
-        if (selectedAsset && financialData[selectedAsset]) {
-            const data: LineData[] = financialData[selectedAsset].map((item: FinancialDataItem) => ({
+        if (selectedAsset && financialData[selectedAsset.ticker]) {
+            const data: LineData[] = financialData[selectedAsset.ticker].map((item: TimeSeriesPoint) => ({
                 time: item.time as UTCTimestamp, // Cast to UTCTimestamp
                 value: item.value,
             }));
@@ -67,19 +70,19 @@ const ForecastChart: React.FC = () => {
             const areaSeries: ISeriesApi<'Area'> = chart.addSeries(AreaSeries, areaSeriesOptions);
 
             areaSeries.setData(data);
-            if (forecast && !error) {
-                const lastDate = financialData[selectedAsset][financialData[selectedAsset].length - 1].time;
-                const lastDateObj = new Date(lastDate * 1000);
+            if (forecastData && !error) {
+                // const lastDate = financialData[selectedAsset.ticker][financialData[selectedAsset.ticker].length - 1].time;
+                // const lastDateObj = new Date(lastDate * 1000);
 
-                const forecastData: LineData[] = Object.keys(forecast).map((key, index) => {
-                    const forecastDate = new Date(lastDateObj);
-                    forecastDate.setDate(forecastDate.getDate() + (index + 1));
-                    return {
-                        time: Math.floor(forecastDate.getTime() / 1000) as UTCTimestamp,
-                        value: forecast[key],
-                    };
-                });
-                const forecastColor = forecastData.length > 0 && forecastData[forecastData.length - 1].value < data[data.length - 1].value ? '#e22e29' : '#2d9c41';
+                // Convert forecast to TimeSeriesPoint format
+                const forecast: LineData[] = forecastData[selectedAsset.ticker]
+                    .filter((item: TimeSeriesPoint) => item.value !== null && !isNaN(item.value))
+                    .map((item: TimeSeriesPoint) => ({
+                        time: item.time as UTCTimestamp,
+                        value: item.value,
+                    }));
+
+                const forecastColor = forecast.length > 0 && forecastData[selectedAsset.ticker][forecast.length - 1].value < data[data.length - 1].value ? '#e22e29' : '#2d9c41';
                 const forecastAreaSeries: ISeriesApi<'Area'> = chart.addSeries(AreaSeries, {
                     topColor: forecastColor,
                     bottomColor: '#ffffff',
@@ -88,16 +91,31 @@ const ForecastChart: React.FC = () => {
                     lineStyle: 1, // 0: solid, 1: dotted, 2: dashed
                 });
 
-                forecastAreaSeries.setData(forecastData);
+                forecastAreaSeries.setData(forecast);
                 chart.timeScale().fitContent();
 
-                
+                // After getting forecast data, connect with historical data
+                if (forecastData && selectedAsset && financialData[selectedAsset.ticker]) {
+                    // Get the last point from historical data
+                    const lastHistoricalPoint = financialData[selectedAsset.ticker][financialData[selectedAsset.ticker].length - 1];
+                    
+                    // Add this point to the beginning of the forecast data
+                    const connectedForecast = [
+                        {
+                            time: lastHistoricalPoint.time as UTCTimestamp,
+                            value: lastHistoricalPoint.value
+                        },
+                        ...forecast
+                    ];
+                    
+                    forecastAreaSeries.setData(connectedForecast);
+                }
             }
         }
         return () => {
             chart.remove();
         };
-    }, [financialData, forecast, selectedAsset, error, selectedInterval]);
+    }, [financialData, forecastData, selectedAsset, error, selectedInterval]);
 
     return <div ref={chartContainerRef} style={{ width: '100%', height: '400px', margin: '0 auto' }} />;
 };

@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { normalizeTime, periodIntervalMap, getYtdIntervals, Period, Interval } from "../lib/utils";
 
+export const BACKEND_URL = "http://localhost:8000"
+
 interface User {
   ID: string;
   email: string;
@@ -12,20 +14,39 @@ interface WatchlistItem {
   Ticker: string;
   FullName: string;
   Icon: string;
+  MarketName: string;
+  MarketLogo: string;
 }
 
 interface Asset {
   ticker: string;
   icon: string;
   full_name: string;
-  market: string;
+  market_name: string;
+  market_logo: string;
   country: string;
   country_flag: string;
 }
 
+interface SelectedAsset {
+  assetLogo: string;
+  companyName: string;
+  ticker: string;
+  marketName: string;
+  marketLogo: string;
+}
+
+export interface TimeSeriesPoint {
+  time: number;
+  value: number;
+}
+
+export type TimeSeriesData = Record<string, TimeSeriesPoint[]>;
+
 interface Store {
   user: User;
   setUser: (newUser: User) => void;
+  resetUser: () => void;
 
   error: string | null;
 
@@ -37,12 +58,14 @@ interface Store {
   addToWatchlist: (
     ticker: string,
     fullname: string,
-    icon: string
+    icon: string,
+    market_name: string,
+    market_logo: string
   ) => Promise<void>;
   removeFromWatchlist: (ticker: string) => Promise<void>;
 
   // watchlist financial data
-  financialData: any;
+  financialData: TimeSeriesData;
   selectedPeriod: Period;
   setSelectedPeriod: (period: Period) => void;
   selectedInterval: Interval;
@@ -50,9 +73,9 @@ interface Store {
   fetchFinancialData: (ticker: string, period: Period, interval: Interval) => Promise<void>;
 
   // forecast data
-  forecast: any;
+  forecastData: TimeSeriesData | null;
   loading: boolean;
-  fetchForecast: (ticker: string, period: Period, interval: Interval, steps?: number) => Promise<void>;
+  fetchForecast: (ticker: string, period: Period, interval: Interval) => Promise<void>;
 
 
   // assets for searchbar
@@ -60,65 +83,85 @@ interface Store {
   getAssets: (searchQuery: string) => Promise<void>;
   setAssets: (newAssets: Asset[]) => void;
 
-  selectedAsset: string;
-  setSelectedAsset: (asset: string) => void;
-}
-
-interface DashboardState {
-  selectedAsset: string;
-  dailyChange: number;
-  weeklyChange: number;
-  monthlyChange: number;
-  yearlyChange: number;
-  volume: number;
-  marketCap: number;
-  peRatio: number;
+  selectedAsset: SelectedAsset | null;
+  setSelectedAsset: (asset: SelectedAsset) => void;
 }
 
 export const useStore = create<Store>((set, get) => ({
   user: {
-    ID: "67a2e2ca7d35e6dfd35f3b17",
-    email: "jd@wustl.edu",
+    ID: "",
+    email: "",
     avatar: "",
-    name: "John Doe",
+    name: "",
   },
   setUser: (newUser) => set({ user: newUser }),
+  resetUser: () =>
+    set({
+      user: {
+        ID: "",
+        email: "",
+        avatar: "",
+        name: "",
+      },
+    }),
 
   watchlist: [],
   setWatchlist: (newWatchlist) => {
     set({ watchlist: newWatchlist });
 
     if (!get().selectedAsset && newWatchlist.length > 0) {
-      set({ selectedAsset: newWatchlist[0].Ticker });
+      set({
+        selectedAsset: {
+          assetLogo: newWatchlist[0].Icon,
+          companyName: newWatchlist[0].FullName,
+          ticker: newWatchlist[0].Ticker,
+          marketName: newWatchlist[0].MarketName,
+          marketLogo: newWatchlist[0].MarketLogo,
+        },
+      });
     }
   },
   getWatchList: async (ID) => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/watchlist/${ID}`);
+      const response = await fetch(`${BACKEND_URL}/watchlist/${ID}`, {
+        credentials: "include",
+      });
       const data = await response.json();
       const tickers = data.Tickers || [];
 
       set({ watchlist: tickers });
 
       if (!get().selectedAsset && tickers.length > 0) {
-        set({ selectedAsset: tickers[0].Ticker });
+        set({
+          selectedAsset: {
+            assetLogo: tickers[0].Icon,
+            companyName: tickers[0].FullName,
+            ticker: tickers[0].Ticker,
+            marketName: tickers[0].MarketName,
+            marketLogo: tickers[0].MarketLogo,
+          },
+        });
       }
     } catch (error) {
       console.error("ERROR: Unable to get watchlist:", error);
       set({ watchlist: [] });
     }
   },
-  addToWatchlist: async (ticker, fullname, icon) => {
+  // adds asset to user's watchlist
+  addToWatchlist: async (ticker, fullname, icon, market_name, market_logo) => {
     try {
       const { ID } = get().user;
-      const response = await fetch("http://127.0.0.1:8000/watchlist/add", {
+      const response = await fetch(`${BACKEND_URL}/watchlist/add`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           ID: ID,
           Ticker: ticker,
           FullName: fullname,
           Icon: icon,
+          MarketName: market_name,
+          MarketLogo: market_logo,
         }),
       });
       const data = await response.json();
@@ -134,9 +177,10 @@ export const useStore = create<Store>((set, get) => ({
   removeFromWatchlist: async (ticker) => {
     try {
       const { ID } = get().user;
-      const response = await fetch("http://127.0.0.1:8000/watchlist/remove", {
+      const response = await fetch(`${BACKEND_URL}/watchlist/remove`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ ID: ID, Ticker: ticker }),
       });
       const data = await response.json();
@@ -144,8 +188,19 @@ export const useStore = create<Store>((set, get) => ({
       if (data.success) {
         await get().getWatchList(ID);
 
-        if (get().selectedAsset === ticker) {
-          set({ selectedAsset: get()?.watchlist[0]?.Ticker || "" });
+        // if removed asset was selected --> select 1st asset in the watchlist
+        if (get().selectedAsset?.ticker === ticker) {
+          set({
+            selectedAsset: get()?.watchlist[0]
+              ? {
+                assetLogo: get()?.watchlist[0].Icon,
+                companyName: get()?.watchlist[0].FullName,
+                ticker: get()?.watchlist[0].Ticker,
+                marketName: get()?.watchlist[0].MarketName,
+                marketLogo: get()?.watchlist[0].MarketLogo,
+              }
+              : null,
+          });
         }
       }
     } catch (error) {
@@ -166,7 +221,7 @@ export const useStore = create<Store>((set, get) => ({
     try {
       set({ financialData: {} });
 
-      const response = await fetch(`http://localhost:8000/data?ticker=${ticker}&period=${period}&interval=${interval}`);
+      const response = await fetch(`${BACKEND_URL}/data?ticker=${ticker}&period=${period}&interval=${interval}`);
       const rawData = await response.json();
 
       if (!rawData || Object.keys(rawData).length === 0) {
@@ -175,13 +230,13 @@ export const useStore = create<Store>((set, get) => ({
         return;
       }
 
-      
+
       const transformedData = Object.keys(rawData).reduce((acc, asset) => {
         const assetData = rawData[asset];
         if (!assetData || !assetData.Close) return acc;
 
         acc[asset] = Object.keys(assetData.Close)
-          .filter(dateKey => assetData.Close[dateKey] !== null) 
+          .filter(dateKey => assetData.Close[dateKey] !== null)
           .map(dateKey => ({
             time: normalizeTime(dateKey),
             value: assetData.Close[dateKey],
@@ -212,18 +267,21 @@ export const useStore = create<Store>((set, get) => ({
     if (searchQuery.length < 1) return;
     try {
       const response = await fetch(
-        `http://127.0.0.1:8000/search?query=${searchQuery}`
+        `${BACKEND_URL}/search?query=${searchQuery}`,
+        {
+          credentials: "include",
+        }
       );
       const data = await response.json();
       set({ assets: data });
     } catch (error) {
       console.error("ERROR: Unable to fetch assets:", error);
-      set({ assets: [] }); 
+      set({ assets: [] });
     }
   },
 
-  selectedAsset: get()?.watchlist[0]?.Ticker || "",
-  setSelectedAsset: (ticker) => set({ selectedAsset: ticker }),
+  selectedAsset: null,
+  setSelectedAsset: (asset) => set({ selectedAsset: asset }),
 
   selectedPeriod: "1y",
   setSelectedPeriod: (period) => {
@@ -242,19 +300,19 @@ export const useStore = create<Store>((set, get) => ({
   selectedInterval: "1d",
   setSelectedInterval: (interval) => set({ selectedInterval: interval }),
 
-  forecast: null,
+  forecastData: null,
   loading: false,
   error: null,
-  fetchForecast: async (ticker, period = "1y", interval = "1d", steps = 30) => {
+  fetchForecast: async (ticker, period = "1y", interval = "1d") => {
     if (!periodIntervalMap[period].includes(interval)) {
       console.warn(`Invalid interval ${interval} for period ${period}. Defaulting to ${periodIntervalMap[period][0]}`);
       interval = periodIntervalMap[period][0];
       set({ selectedInterval: interval });
     }
-    console.log("Fetching forecast data for:", { ticker, period, interval, steps });
+    console.log("Fetching forecast data for:", { ticker, period, interval });
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`http://127.0.0.1:8000/predict_arima?ticker=${ticker}&period=${period}&interval=${interval}&steps=${steps}`, {
+      const response = await fetch(`${BACKEND_URL}/predict_arima?ticker=${ticker}&period=${period}&interval=${interval}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -264,7 +322,7 @@ export const useStore = create<Store>((set, get) => ({
         throw new Error(`Error: ${response.statusText}`);
       }
       const data = await response.json();
-      set({ forecast: data });
+      set({ forecastData: data });
     } catch (error) {
       console.error("Error fetching forecast data:", error);
       set({ error: "Error fetching forecast data" });
@@ -273,5 +331,6 @@ export const useStore = create<Store>((set, get) => ({
     }
   },
 }));
+
 
 

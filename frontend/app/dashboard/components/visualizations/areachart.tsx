@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { createChart, AreaData, AreaSeries } from 'lightweight-charts';
+import { createChart, AreaData, AreaSeries, UTCTimestamp } from 'lightweight-charts';
 import { useStore } from '../../../../zustand/store';
 
 
@@ -15,17 +15,13 @@ const AreaChart: React.FC = () => {
 
   useEffect(() => {
     if (selectedAsset) {
-      fetchFinancialData(selectedAsset, selectedPeriod, selectedInterval);
+      fetchFinancialData(selectedAsset.ticker, selectedPeriod, selectedInterval);
     }
   }, [fetchFinancialData, selectedAsset, selectedPeriod, selectedInterval]);
 
   useEffect(() => {
-    console.log('useEffect triggered');
-    console.log('Selected Asset:', selectedAsset);
-    console.log('Financial Data:', financialData);
 
     if (!chartContainerRef.current) {
-      console.log('Chart container not found');
       return;
     }
     const intradayIntervals = ["1m", "5m", "15m", "30m", "1h"];
@@ -52,10 +48,11 @@ const AreaChart: React.FC = () => {
       },
     });
 
-    if (selectedAsset && financialData[selectedAsset]) {
-      console.log('Data for Selected Asset:', financialData[selectedAsset]);
-      const data: AreaData[] = financialData[selectedAsset] || [];
-      console.log('Formatted Data:', data);
+    if (selectedAsset && financialData[selectedAsset.ticker]) {
+      const data: AreaData[] = financialData[selectedAsset.ticker].map(point => ({
+        time: point.time as UTCTimestamp,
+        value: point.value
+      }));
       const color = data.length > 0 && data[data.length - 1].value < data[0].value ? '#e22e29' : '#2d9c41';
       const areaSeries = chart.addSeries(AreaSeries, { lineWidth: 2, lineColor: color, topColor: color, bottomColor: '#ffffff', });
       areaSeries.setData(data);

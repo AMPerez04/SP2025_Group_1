@@ -1,4 +1,5 @@
 import React from "react";
+import AppInitializer from "./utils/AppInitializer";
 
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
@@ -20,7 +21,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       {/* <StyledEngineProvider injectFirst> */}
-      <body className={`${inter.className} min-h-screen`}>{children}</body>
+      <body className={`${inter.className} min-h-screen`}>
+        <AppInitializer/>
+        {children}
+        </body>
       {/* </StyledEngineProvider> */}
     </html>
   );
