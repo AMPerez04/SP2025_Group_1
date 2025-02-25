@@ -425,7 +425,7 @@ async def forgot_password(request_data: ForgotPasswordRequest):
     # Send the email with the reset link
     try:
         send_reset_email(email_lower, reset_link)
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error sending reset email."
