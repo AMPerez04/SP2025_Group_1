@@ -41,7 +41,7 @@ export default function ResetPassword() {
 
       setMessage("Password reset successfully!");
       // Optionally redirect to the login page
-      router.push("/login");
+      router.push("/");
     } catch (error: unknown) {
       if (error instanceof Error) {
         setErrorMessage(error.message);

@@ -35,7 +35,7 @@ export default function AppInitializer() {
     };
 
     fetchSession();
-  }, [setUser, router]);
+  }, [setUser, router, pathname]);
 
   return null; // This component only handles initialization
 }
