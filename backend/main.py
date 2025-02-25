@@ -10,6 +10,10 @@ from typing import Optional
 from passlib.context import CryptContext
 import os
 import time
+from email.message import EmailMessage
+import secrets
+import smtplib
+import ssl
 
 load_dotenv()
 
@@ -366,6 +370,113 @@ async def submit_survey(request: SurveySubmission):
 
     return
 
+
+# --------------------------
+# Forgot Password Functionality
+# --------------------------
+
+# Define a Pydantic model for forgot password request
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+def send_reset_email(recipient_email: str, reset_link: str):
+    """Send a password reset email using Google SMTP."""
+    smtp_server = "smtp.gmail.com"
+    port = 465  # For SSL
+    sender_email = os.getenv("GMAIL_USER")  # Your Gmail address
+    sender_password = os.getenv("GMAIL_PASSWORD")  # Your Gmail password or app password
+
+    # Create the email content
+    message = EmailMessage()
+    message.set_content(f"Click the following link to reset your password:\n\n{reset_link}")
+    message['Subject'] = "Password Reset Request"
+    message['From'] = sender_email
+    message['To'] = recipient_email
+
+    # Create a secure SSL context and send the email
+    context = ssl.create_default_context()
+    with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:
+        server.login(sender_email, sender_password)
+        server.send_message(message)
+
+@app.post("/forgot-password")
+async def forgot_password(request_data: ForgotPasswordRequest):
+    """Endpoint for requesting a password reset email."""
+    email_lower = request_data.email.lower()
+    user = db["users"].find_one({"email": email_lower})
+    
+    if not user:
+        # For security, you might still return a generic message
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    
+    # Generate a secure reset token and set an expiration (e.g., 1 hour)
+    reset_token = secrets.token_urlsafe(32)
+    expiration_time = time.time() + 3600  # 1 hour from now
+
+    # Save the token and its expiration in the user's document
+    db["users"].update_one(
+        {"email": email_lower},
+        {"$set": {"reset_token": reset_token, "reset_token_expiration": expiration_time}}
+    )
+
+    # Build the reset link (adjust the URL to match your frontend route)
+    reset_link = f"http://localhost:3000/reset-password?token={reset_token}&email={email_lower}"
+
+    # Send the email with the reset link
+    try:
+        send_reset_email(email_lower, reset_link)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error sending reset email."
+        )
+    
+    return {"message": "If an account with that email exists, a password reset email has been sent."}
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    email: EmailStr
+    password: str
+
+@app.post("/reset-user-password")
+async def reset_user_password(request_data: ResetPasswordRequest):
+    email_lower = request_data.email.lower()
+    user = users.find_one({"email": email_lower})
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found."
+        )
+    
+    stored_token = user.get("reset_token")
+    token_expiration = user.get("reset_token_expiration", 0)
+    
+    # Verify that the token exists and matches, and has not expired
+    if not stored_token or stored_token != request_data.token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid token."
+        )
+    if time.time() > token_expiration:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token expired."
+        )
+    
+    # Hash the new password
+    hashed_password = pwd_context.hash(request_data.password)
+    
+    # Update the user's password and remove the reset token fields
+    users.update_one(
+        {"email": email_lower},
+        {
+            "$set": {"password": hashed_password},
+            "$unset": {"reset_token": "", "reset_token_expiration": ""}
+        }
+    )
+    
+    return {"message": "Password has been reset successfully."}
 
 if __name__ == "__main__":
     import uvicorn

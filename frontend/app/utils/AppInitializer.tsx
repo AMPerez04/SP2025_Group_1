@@ -2,11 +2,12 @@
 
 import { useEffect } from "react";
 import { useStore, BACKEND_URL } from "@/zustand/store";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 export default function AppInitializer() {
   const setUser = useStore((state) => state.setUser);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -24,7 +25,9 @@ export default function AppInitializer() {
           });
         } else {
           // Optionally redirect to login if no user is found
-          router.push("/");
+          if (pathname !== "/reset-password") {
+            router.push("/");
+          }
         }
       } catch (err) {
         console.error("Error fetching session:", err);
