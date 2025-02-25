@@ -45,11 +45,21 @@ const ForecastChart: React.FC = () => {
                 timeVisible: intradayIntervals.includes(selectedInterval),
                 secondsVisible: false,
                 rightOffset: 5,
+                barSpacing: 12,
                 fixLeftEdge: true,
                 fixRightEdge: true,
-                tickMarkFormatter: (time:number) => {
+                minBarSpacing: 10,
+                uniformDistribution: true,
+                tickMarkFormatter: (time: number) => {
                     const date = new Date(time * 1000);
-                    return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    // Use different formats for different interval types
+                    if (intradayIntervals.includes(selectedInterval)) {
+                        return date.toLocaleTimeString([], { hour: 'numeric' });
+                    } else if (selectedInterval === "1d") {
+                        return date.toLocaleDateString([], { month: 'short' });
+                    } else {
+                        return date.toLocaleDateString([], { month: 'short' });
+                    }
                 }
             },
         });
@@ -71,9 +81,6 @@ const ForecastChart: React.FC = () => {
 
             areaSeries.setData(data);
             if (forecastData && !error) {
-                // const lastDate = financialData[selectedAsset.ticker][financialData[selectedAsset.ticker].length - 1].time;
-                // const lastDateObj = new Date(lastDate * 1000);
-
                 // Convert forecast to TimeSeriesPoint format
                 const forecast: LineData[] = forecastData[selectedAsset.ticker]
                     .filter((item: TimeSeriesPoint) => item.value !== null && !isNaN(item.value))
@@ -82,8 +89,23 @@ const ForecastChart: React.FC = () => {
                         value: item.value,
                     }));
 
-                const forecastColor = forecast.length > 0 && forecastData[selectedAsset.ticker][forecast.length - 1].value < data[data.length - 1].value ? '#e22e29' : '#2d9c41';
-                const forecastAreaSeries: ISeriesApi<'Area'> = chart.addSeries(AreaSeries, {
+                // Get the last point from historical data
+                const lastHistoricalPoint = financialData[selectedAsset.ticker][financialData[selectedAsset.ticker].length - 1];
+
+                // Create connected forecast BEFORE setting the data
+                const connectedForecast = [
+                    {
+                        time: lastHistoricalPoint.time as UTCTimestamp,
+                        value: lastHistoricalPoint.value
+                    },
+                    ...forecast
+                ];
+
+                const forecastColor = forecast.length > 0 &&
+                    forecastData[selectedAsset.ticker][forecast.length - 1].value <
+                    data[data.length - 1].value ? '#e22e29' : '#2d9c41';
+
+                const forecastAreaSeries = chart.addSeries(AreaSeries, {
                     topColor: forecastColor,
                     bottomColor: '#ffffff',
                     lineColor: forecastColor,
@@ -91,25 +113,12 @@ const ForecastChart: React.FC = () => {
                     lineStyle: 1, // 0: solid, 1: dotted, 2: dashed
                 });
 
-                forecastAreaSeries.setData(forecast);
+                // After setting data, fit content and force time scale consistency
+                forecastAreaSeries.setData(connectedForecast);
                 chart.timeScale().fitContent();
-
-                // After getting forecast data, connect with historical data
-                if (forecastData && selectedAsset && financialData[selectedAsset.ticker]) {
-                    // Get the last point from historical data
-                    const lastHistoricalPoint = financialData[selectedAsset.ticker][financialData[selectedAsset.ticker].length - 1];
-                    
-                    // Add this point to the beginning of the forecast data
-                    const connectedForecast = [
-                        {
-                            time: lastHistoricalPoint.time as UTCTimestamp,
-                            value: lastHistoricalPoint.value
-                        },
-                        ...forecast
-                    ];
-                    
-                    forecastAreaSeries.setData(connectedForecast);
-                }
+                chart.timeScale().applyOptions({
+                    barSpacing: 12, // Ensure consistent spacing
+                });
             }
         }
         return () => {
