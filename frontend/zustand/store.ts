@@ -205,6 +205,7 @@ export const useStore = create<Store>((set, get) => ({
       }
     } catch (error) {
       console.error("ERROR: Unable to remove from watchlist:", error);
+      get().setError(`Unable to remove $${ticker} from your watchlist`);
     }
   },
   financialData: {},
@@ -216,6 +217,7 @@ export const useStore = create<Store>((set, get) => ({
       set({ selectedInterval: interval });
 
     }
+
     console.log("Fetching financial data for:", { ticker, period, interval });
     try {
       set({ financialData: {} });
@@ -228,6 +230,7 @@ export const useStore = create<Store>((set, get) => ({
         set({ financialData: {} });
         return;
       }
+
 
       const transformedData = Object.keys(rawData).reduce((acc, asset) => {
         const assetData = rawData[asset];
@@ -298,7 +301,7 @@ export const useStore = create<Store>((set, get) => ({
   selectedInterval: "1d",
   setSelectedInterval: (interval) => set({ selectedInterval: interval }),
 
-  forecastData: null,
+  forecastData: {},
   loading: false,
   error: null,
   fetchForecast: async (ticker, period = "1y", interval = "1d") => {
@@ -319,10 +322,32 @@ export const useStore = create<Store>((set, get) => ({
       if (!response.ok) {
         throw new Error(`Error: ${response.statusText}`);
       }
-      const data = await response.json();
-      
-      set({ forecastData: data });
 
+      // const data = await response.json();
+      // 
+      // set({ forecastData: data });
+      const rawData = await response.json();
+
+      if (!rawData || Object.keys(rawData).length === 0) {
+        console.error('Error: rawData is undefined, null, or empty');
+        set({ forecastData: null });
+        return;
+      }
+
+      // Apply normalizeTime to the data
+      const normalizedData = Object.keys(rawData).reduce((acc, asset) => {
+        acc[asset] = rawData[asset].map((point: any) => ({
+          time: normalizeTime(point.time),
+          value: point.value,
+        }));
+        return acc;
+      }, {} as Record<string, { time: number; value: number }[]>);
+
+      // Log the normalized data for debugging
+      console.log("Normalized forecast data:", normalizedData);
+
+      // Set the forecastData in the same style it was served before
+      set({ forecastData: normalizedData });
     } catch (error) {
       console.error("Error fetching forecast data:", error);
       set({ error: "Error fetching forecast data" });

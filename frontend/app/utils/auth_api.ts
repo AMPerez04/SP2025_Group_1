@@ -12,9 +12,8 @@ export interface UserData {
 }
 
 export interface SignupResponse {
-    message: string;
-  }
-  
+  message: string;
+}
 
 /**
  * Logs in the user.
@@ -23,7 +22,10 @@ export interface SignupResponse {
  * @returns The user data from the backend.
  * @throws An Error with an error message if the request fails.
  */
-export async function login(email: string, password: string): Promise<UserData> {
+export async function login(
+  email: string,
+  password: string
+): Promise<UserData> {
   const res = await fetch(`${BACKEND_URL}/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -47,19 +49,22 @@ export async function login(email: string, password: string): Promise<UserData> 
  * @returns The response data from the backend.
  * @throws An Error with an error message if the request fails.
  */
-export async function signup(email: string, username: string, password: string): Promise<SignupResponse> {
-    const res = await fetch(`${BACKEND_URL}/signup`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ email, username, password }),
-    });
-  
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.detail || res.statusText || "Signup failed");
-    }
-    
-  
-    return res.json();
+export async function signup(
+  email: string,
+  username: string,
+  password: string
+): Promise<SignupResponse> {
+  const res = await fetch(`${BACKEND_URL}/signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ email, username, password }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.detail || res.statusText || "Signup failed");
   }
+
+  return res.json();
+}

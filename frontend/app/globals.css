@@ -66,3 +66,7 @@
     --button-background: 212, 14%, 86%;
   }
 }
+
+[data-content] {
+  margin-left: 15px;
+}
