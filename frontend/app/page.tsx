@@ -177,15 +177,15 @@ export default function Page() {
             {isForgot
               ? "Forgot Password"
               : mode === "login"
-              ? "Welcome back 👏"
-              : "Create an account"}
+                ? "Welcome back 👏"
+                : "Create an account"}
           </h1>
           <p>
             {isForgot
               ? "Enter your email to receive a reset link."
               : mode === "login"
-              ? "Please enter your details!"
-              : "Please fill in your details to sign up!"}
+                ? "Please enter your details!"
+                : "Please fill in your details to sign up!"}
           </p>
         </div>
 
@@ -389,8 +389,8 @@ export default function Page() {
           {isForgot
             ? "Send Reset Email"
             : mode === "login"
-            ? "Login"
-            : "Sign Up"}
+              ? "Login"
+              : "Sign Up"}
         </button>
 
         {/* Toggle Mode / Forgot Password Links */}
@@ -408,7 +408,22 @@ export default function Page() {
                 Back to Login
               </button>
             ) : (
-              <>
+              <div className="flex flex-col gap-2 justify-center align-center w-full">
+                <div className="flex gap-1 justify-center">
+                  <span>
+                    {mode === "login"
+                      ? "Don't have an account?"
+                      : "Already have an account?"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={toggleMode}
+                    title={mode === "login" ? "Create Account" : "Sign In"}
+                    className="text-[#515151] font-semibold hover:underline"
+                  >
+                    {mode === "login" ? "Sign Up" : "Sign In"}
+                  </button>
+                </div>
                 {mode === "login" && (
                   <button
                     type="button"
@@ -418,20 +433,7 @@ export default function Page() {
                     Forgot Password?
                   </button>
                 )}
-                <span>
-                  {mode === "login"
-                    ? "Don't have an account?"
-                    : "Already have an account?"}
-                </span>
-                <button
-                  type="button"
-                  onClick={toggleMode}
-                  title={mode === "login" ? "Create Account" : "Sign In"}
-                  className="text-[#515151] font-semibold hover:underline"
-                >
-                  {mode === "login" ? "Sign Up" : "Sign In"}
-                </button>
-              </>
+              </div>
             )}
           </div>
         </div>
