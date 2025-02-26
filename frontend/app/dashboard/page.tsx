@@ -1,8 +1,6 @@
 "use client";
 
 import React from "react";
-
-import { DollarSign, Users, CreditCard, Activity } from "lucide-react";
 import { ResponsiveContainer } from "recharts";
 import AreaChart from "@/app/dashboard/components/visualizations/areachart";
 

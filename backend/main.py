@@ -12,8 +12,7 @@ import os
 import time
 from analytics.data_fetcher import fetch_stock_data
 import logging
-from analytics.arima_model import train_arima_model, predict_arima_model
-from analytics.arima_model_modular import (
+from analytics.arima_model import (
     ForecastModelFactory, 
     MarketCalendar, 
     ModelConfig
@@ -415,43 +414,8 @@ class ARIMATrainResponse(BaseModel, arbitrary_types_allowed=True):
 
 @app.post("/predict_arima")
 def predict_arima(ticker: str, period: str, interval: str) -> dict:
-    # """Predict future stock prices using the trained ARIMA model"""
-    # try:
-    #     stock_data = fetch_stock_data(
-    #         ticker=ticker, period=period, interval=interval, is_prediction=True
-    #     )
-
-    #     df = pd.DataFrame(
-    #         index=pd.to_datetime(list(stock_data[ticker]["Close"].keys()))
-    #     )
-    #     df["Close"] = list(stock_data[ticker]["Close"].values())
-    #     # Add data validation
-    #     df = df.dropna()  # Remove any NaN values
-    #     if len(df) == 0:
-    #         raise ValueError("No valid data points after cleaning")
-
-    #     model_fit,training_timestamps = train_arima_model(df, period, interval)
-    #     logger.info(f"—— Main.py –– model_fit: {model_fit}")
-    #     forecast_series, steps = predict_arima_model(model_fit, training_timestamps[-1], period, interval)
-    #     logger.info("forecast series: %s", forecast_series)
-    #     # Convert to {ticker: {timestamp: value}} format
-    #     forecast = {
-    #         ticker: [
-    #             {
-    #                 "time": int(k.tz_convert('America/New_York').timestamp()),  # Ensure NY timezone
-    #                 "value": float(v)
-    #             }
-    #             for k, v in forecast_series.items()
-    #         ]
-    #     }
-    #     logger.info("last datetimestamp in stock data and first in forecast: %s, %s", training_timestamps[-1], forecast_series.index[0])
-    #     return forecast
-
-    # except ValueError as e:
-    #     raise HTTPException(status_code=400, detail=str(e))
-    # except Exception as e:
-    #     logger.error(f"Error in predict_arima: {e}")
-    #     raise HTTPException(status_code=500, detail="Internal Server Error")
+    """Predict future stock prices using the trained ARIMA model"""
+    
 
     try:
         # Create forecaster components

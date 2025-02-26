@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { createChart, ISeriesApi, LineData, UTCTimestamp, AreaSeriesPartialOptions, AreaSeries } from 'lightweight-charts';
+import { createChart, LineData, UTCTimestamp, AreaSeries } from 'lightweight-charts';
 import { useStore } from '../../../../zustand/store';
 import { Interval, formatChartTime } from '../../../../lib/utils';
 const intradayIntervals: Interval[] = ["1m", "5m", "15m", "30m", "1h"] as const;

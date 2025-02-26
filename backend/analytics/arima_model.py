@@ -1,8 +1,7 @@
 # backend/analytics/arima_model_modular.py
 import pandas as pd
 import numpy as np
-from statsmodels.tsa.arima.model import ARIMA, ARIMAResults
-from statsmodels.tsa.holtwinters import ExponentialSmoothing
+from statsmodels.tsa.arima.model import ARIMA
 from pandas.tseries.holiday import USFederalHolidayCalendar
 from pandas.tseries.offsets import CustomBusinessDay, BusinessHour
 import logging

@@ -1,5 +1,5 @@
 import React from 'react';
-import { DollarSign, Users, CreditCard, Activity } from "lucide-react";
+import { DollarSign } from "lucide-react";
 import { useStore } from "@/zustand/store";
 import {
   Card,
