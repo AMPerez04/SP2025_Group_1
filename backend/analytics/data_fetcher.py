@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def fetch_stock_data(
-    ticker: str, period: str = "1y", interval: str = "1d", is_prediction: bool = False
+    ticker: str, period: str = "1y", interval: str = "1d"
 ) -> dict:
     """
     Fetches stock data for a given ticker symbol
@@ -46,6 +46,7 @@ def fetch_stock_data(
         # Adjust dates for weekly data to show Friday instead of Monday
         if interval == "1wk":
             stock_data.index = stock_data.index + pd.Timedelta(days=4)
+            
 
         result = {ticker: {}}
         for column in ["Open", "High", "Low", "Close", "Volume"]:

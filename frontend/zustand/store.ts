@@ -44,6 +44,7 @@ export interface TimeSeriesPoint {
 export type TimeSeriesData = Record<string, TimeSeriesPoint[]>;
 
 interface Store {
+  // user info
   user: User;
   setUser: (newUser: User) => void;
   resetUser: () => void;
@@ -85,6 +86,10 @@ interface Store {
 
   selectedAsset: SelectedAsset | null;
   setSelectedAsset: (asset: SelectedAsset) => void;
+
+  // toast notification error message
+  errorMessage: string;
+  setError: (errorMessage: string) => void;
 }
 
 export const useStore = create<Store>((set, get) => ({
@@ -109,6 +114,7 @@ export const useStore = create<Store>((set, get) => ({
   setWatchlist: (newWatchlist) => {
     set({ watchlist: newWatchlist });
 
+    // if no asset currently selected --> select 1st asset in the watchlist
     if (!get().selectedAsset && newWatchlist.length > 0) {
       set({
         selectedAsset: {
@@ -121,6 +127,7 @@ export const useStore = create<Store>((set, get) => ({
       });
     }
   },
+  // gets user's watchlist
   getWatchList: async (ID) => {
     try {
       const response = await fetch(`${BACKEND_URL}/watchlist/${ID}`, {
@@ -131,6 +138,7 @@ export const useStore = create<Store>((set, get) => ({
 
       set({ watchlist: tickers });
 
+      // if no asset currently selected --> select 1st asset in the watchlist
       if (!get().selectedAsset && tickers.length > 0) {
         set({
           selectedAsset: {
@@ -144,7 +152,7 @@ export const useStore = create<Store>((set, get) => ({
       }
     } catch (error) {
       console.error("ERROR: Unable to get watchlist:", error);
-      set({ watchlist: [] });
+      set({ watchlist: [] }); // if error --> display an empty watchlist
     }
   },
   // adds asset to user's watchlist
@@ -165,15 +173,20 @@ export const useStore = create<Store>((set, get) => ({
         }),
       });
       const data = await response.json();
+
       if (data.Tickers) {
         await get().getWatchList(ID);
+      } else {
+        throw new Error("ERROR: Unable to add ticker to watchlist");
       }
     } catch (error) {
       console.error("ERROR: Unable to add ticker to watchlist:", error);
+      get().setError(`Unable to add $${ticker} to your watchlist`);
     }
 
 
   },
+  // removes asset from user's watchlist
   removeFromWatchlist: async (ticker) => {
     try {
       const { ID } = get().user;
@@ -202,6 +215,8 @@ export const useStore = create<Store>((set, get) => ({
               : null,
           });
         }
+      } else {
+        throw new Error("ERROR: Unable to remove ticker from watchlist");
       }
     } catch (error) {
       console.error("ERROR: Unable to remove from watchlist:", error);
@@ -264,6 +279,7 @@ export const useStore = create<Store>((set, get) => ({
 
   assets: [],
   setAssets: (newAssets) => set({ assets: newAssets }),
+  // gets all assets matching search query
   getAssets: async (searchQuery) => {
     if (searchQuery.length < 1) return;
     try {
@@ -283,7 +299,7 @@ export const useStore = create<Store>((set, get) => ({
 
   selectedAsset: null,
   setSelectedAsset: (asset) => set({ selectedAsset: asset }),
-
+	
   selectedPeriod: "1y",
   setSelectedPeriod: (period) => {
     const currentInterval = get().selectedInterval;
@@ -355,4 +371,8 @@ export const useStore = create<Store>((set, get) => ({
       set({ loading: false });
     }
   },
+  errorMessage: "",
+  setError: (errorMessage) => set({ errorMessage }),
 }));
+
+

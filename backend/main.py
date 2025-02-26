@@ -16,11 +16,7 @@ import smtplib
 import ssl
 from analytics.data_fetcher import fetch_stock_data
 import logging
-from analytics.arima_model import (
-    ForecastModelFactory, 
-    MarketCalendar, 
-    ModelConfig
-)
+from analytics.arima_model import ForecastModelFactory, MarketCalendar, ModelConfig
 import pandas as pd
 
 
@@ -58,6 +54,7 @@ db = client["stock_dashboard"]
 
 # Create a password hashing context (using bcrypt)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 
 @app.get("/")
 def read_root():
@@ -228,13 +225,14 @@ async def remove_from_watchlist(request: WatchlistRequest):
 
     except Exception:
         return {"success": False}
-    
-    
+
+
 # ==============================================================================================================
 # Authentication Endpoints (Login & Signup)
 # ==============================================================================================================
 
-users = db["users"] # db collection w/ user info
+users = db["users"]  # db collection w/ user info
+
 
 class UserSignup(BaseModel):
     email: EmailStr
@@ -245,19 +243,19 @@ class UserSignup(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+
 class SettingsUpdateRequest(BaseModel):
     username: Optional[str] = None
     email: Optional[EmailStr] = None
-    new_password: Optional[str] = None 
+    new_password: Optional[str] = None
     password: str
-
 
 
 @app.post("/signup")
 async def signup(user: UserSignup):
     # Convert the email to lowercase before checking and inserting
     email_lower = user.email.lower()
-
 
     # Check if a user with the same email already exists.
     existing_user = users.find_one({"email": email_lower})
@@ -326,7 +324,8 @@ async def get_session(request: Request):
         return {"user": user}
     else:
         return {"user": None}
-    
+
+
 @app.post("/update-settings")
 async def update_settings(request: Request, update: SettingsUpdateRequest):
     """
@@ -338,23 +337,21 @@ async def update_settings(request: Request, update: SettingsUpdateRequest):
     session_user = request.session.get("user")
     if not session_user:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not authenticated."
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated."
         )
 
     user_id = session_user["user_id"]
     user_doc = users.find_one({"_id": ObjectId(user_id)})
     if not user_doc:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found."
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
         )
 
     # Verify the provided current password.
     if not pwd_context.verify(update.password, user_doc["password"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect current password."
+            detail="Incorrect current password.",
         )
 
     # Build the update fields.
@@ -365,8 +362,7 @@ async def update_settings(request: Request, update: SettingsUpdateRequest):
         # Optionally check if the new email is already in use.
         if users.find_one({"email": update.email}):
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already in use."
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Email already in use."
             )
         update_fields["email"] = update.email
     if update.new_password:
@@ -468,7 +464,9 @@ def fetch_financial_data(ticker: str, period: str = "1y", interval: str = "1d"):
     )
     try:
         stock_data = fetch_stock_data(
-            ticker=ticker, period=period, interval=interval, is_prediction=False
+            ticker=ticker,
+            period=period,
+            interval=interval,
         )
         return stock_data
     except Exception as e:
@@ -489,53 +487,52 @@ class ARIMATrainResponse(BaseModel, arbitrary_types_allowed=True):
 @app.post("/predict_arima")
 def predict_arima(ticker: str, period: str, interval: str) -> dict:
     """Predict future stock prices using the trained ARIMA model"""
-    
 
     try:
         # Create forecaster components
         market_calendar = MarketCalendar()
         config = ModelConfig()
-        
+
         # Get forecaster via factory
         forecaster = ForecastModelFactory.create_model(
-            "arima", 
-            market_calendar=market_calendar, 
-            config=config
+            "arima", market_calendar=market_calendar, config=config
         )
-        
+
         # Fetch stock data
         stock_data = fetch_stock_data(
-            ticker=ticker, period=period, interval=interval, is_prediction=True
+            ticker=ticker,
+            period=period,
+            interval=interval,
         )
-        
+
         # Transform data to DataFrame
         df = pd.DataFrame(
             index=pd.to_datetime(list(stock_data[ticker]["Close"].keys()))
         )
         df["Close"] = list(stock_data[ticker]["Close"].values())
         df = df.dropna()
-        
+
         if len(df) < 10:
             raise ValueError(f"Not enough data points for {ticker}: {len(df)}")
-            
+
         # Train model
         logger.info(f"Training model for {ticker} with {period}/{interval}")
         success = forecaster.train(df, period, interval)
-        
+
         if not success:
             raise ValueError("Failed to train model")
-            
+
         # Generate forecast
         result = forecaster.forecast()
-        
+
         # Note: The to_dict() method returns data with the "forecast" ticker
         # We need to replace it with the actual ticker
         forecast_data = result.to_dict()
         forecast_data[ticker] = forecast_data.pop("forecast")
-        
+
         logger.info(f"Successfully generated forecast for {ticker}")
         return forecast_data
-        
+
     except ValueError as e:
         logger.error(f"Validation error in predict_arima: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -544,22 +541,20 @@ def predict_arima(ticker: str, period: str, interval: str) -> dict:
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
-
-
-
 # ================================================================================================================================
 # === /predict endpoints ========================================================================================================
 # ================================================================================================================================
-
 
 
 # --------------------------
 # Forgot Password Functionality
 # --------------------------
 
+
 # Define a Pydantic model for forgot password request
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
+
 
 def send_reset_email(recipient_email: str, reset_link: str):
     """Send a password reset email using Google SMTP."""
@@ -570,10 +565,12 @@ def send_reset_email(recipient_email: str, reset_link: str):
 
     # Create the email content
     message = EmailMessage()
-    message.set_content(f"Click the following link to reset your password:\n\n{reset_link}")
-    message['Subject'] = "Password Reset Request"
-    message['From'] = sender_email
-    message['To'] = recipient_email
+    message.set_content(
+        f"Click the following link to reset your password:\n\n{reset_link}"
+    )
+    message["Subject"] = "Password Reset Request"
+    message["From"] = sender_email
+    message["To"] = recipient_email
 
     # Create a secure SSL context and send the email
     context = ssl.create_default_context()
@@ -581,16 +578,19 @@ def send_reset_email(recipient_email: str, reset_link: str):
         server.login(sender_email, sender_password)
         server.send_message(message)
 
+
 @app.post("/forgot-password")
 async def forgot_password(request_data: ForgotPasswordRequest):
     """Endpoint for requesting a password reset email."""
     email_lower = request_data.email.lower()
     user = db["users"].find_one({"email": email_lower})
-    
+
     if not user:
         # For security, you might still return a generic message
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
+        )
+
     # Generate a secure reset token and set an expiration (e.g., 1 hour)
     reset_token = secrets.token_urlsafe(32)
     expiration_time = time.time() + 3600  # 1 hour from now
@@ -598,11 +598,18 @@ async def forgot_password(request_data: ForgotPasswordRequest):
     # Save the token and its expiration in the user's document
     db["users"].update_one(
         {"email": email_lower},
-        {"$set": {"reset_token": reset_token, "reset_token_expiration": expiration_time}}
+        {
+            "$set": {
+                "reset_token": reset_token,
+                "reset_token_expiration": expiration_time,
+            }
+        },
     )
 
     # Build the reset link (adjust the URL to match your frontend route)
-    reset_link = f"http://localhost:3000/reset-password?token={reset_token}&email={email_lower}"
+    reset_link = (
+        f"http://localhost:3000/reset-password?token={reset_token}&email={email_lower}"
+    )
 
     # Send the email with the reset link
     try:
@@ -610,55 +617,57 @@ async def forgot_password(request_data: ForgotPasswordRequest):
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error sending reset email."
+            detail="Error sending reset email.",
         )
-    
-    return {"message": "If an account with that email exists, a password reset email has been sent."}
+
+    return {
+        "message": "If an account with that email exists, a password reset email has been sent."
+    }
+
 
 class ResetPasswordRequest(BaseModel):
     token: str
     email: EmailStr
     password: str
 
+
 @app.post("/reset-user-password")
 async def reset_user_password(request_data: ResetPasswordRequest):
     email_lower = request_data.email.lower()
     user = users.find_one({"email": email_lower})
-    
+
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found."
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
         )
-    
+
     stored_token = user.get("reset_token")
     token_expiration = user.get("reset_token_expiration", 0)
-    
+
     # Verify that the token exists and matches, and has not expired
     if not stored_token or stored_token != request_data.token:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid token."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token."
         )
     if time.time() > token_expiration:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Token expired."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Token expired."
         )
-    
+
     # Hash the new password
     hashed_password = pwd_context.hash(request_data.password)
-    
+
     # Update the user's password and remove the reset token fields
     users.update_one(
         {"email": email_lower},
         {
             "$set": {"password": hashed_password},
-            "$unset": {"reset_token": "", "reset_token_expiration": ""}
-        }
+            "$unset": {"reset_token": "", "reset_token_expiration": ""},
+        },
     )
-    
+
     return {"message": "Password has been reset successfully."}
+
 
 if __name__ == "__main__":
     import uvicorn

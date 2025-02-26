@@ -33,14 +33,15 @@ export function formatChartTime(timestamp: number, interval: Interval): string {
     const date = new Date(timestamp * 1000);
     if (interval.endsWith('m') || interval.endsWith('h')) {
         return date.toLocaleTimeString('en-US', {
-            timeZone: 'America/New_York',
+            timeZone: 'UTC',
+            month: 'short',
             hour: 'numeric',
             minute: '2-digit',
             hour12: true
         });
     }
     return date.toLocaleDateString('en-US', {
-        timeZone: 'America/New_York',
+        timeZone: 'UTC',
         month: 'short',
         day: 'numeric',
         year: interval === '1mo' ? 'numeric' : undefined

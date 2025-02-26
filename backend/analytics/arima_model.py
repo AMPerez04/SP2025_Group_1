@@ -405,7 +405,7 @@ class ForecastResult:
         connected_series = self.to_connected_series()
         result = {
             ticker: [
-                {"time": int(ts.timestamp()), "value": float(val)}
+                {"time": ts.isoformat(), "value": float(val)}
                 for ts, val in connected_series.items()
             ]
         }

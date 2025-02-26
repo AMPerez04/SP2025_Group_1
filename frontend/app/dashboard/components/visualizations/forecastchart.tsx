@@ -58,7 +58,7 @@ const ForecastChart: React.FC = () => {
                 time: item.time as UTCTimestamp,
                 value: item.value,
             }))
-            .sort((a, b) => (a.time as number) - (b.time as number));
+            .sort((a, b) => (a.time) - (b.time));
 
         // Set up historical data series
         const color = data.length > 0 && data[data.length - 1].value < data[0].value ? '#e22e29' : '#2d9c41';
@@ -80,15 +80,17 @@ const ForecastChart: React.FC = () => {
                         value: item.value,
                     }))
                     .map(item => [item.time, item])
-            ).values()).sort((a, b) => (a.time as number) - (b.time as number));
+            ).values()).sort((a, b) => (a.time) - (b.time));
+            console.log('Unique forecast:', uniqueForecast);
 
             const lastHistoricalPoint = data[data.length - 1];
-
+            console.log('Last historical point:', lastHistoricalPoint.time);
             // Create connected forecast ensuring unique timestamps
             const futureForecast = uniqueForecast.filter(point =>
-                (point.time as number) > (lastHistoricalPoint.time as number)
+                (point.time) > (lastHistoricalPoint.time as UTCTimestamp)
             );
-            console.log('Future forecast length:', futureForecast.length);
+
+            console.log('Future forecast:', futureForecast);
             if (futureForecast.length > 0) {
                 console.log('Last historical point:', new Date((lastHistoricalPoint.time as number) * 1000).toLocaleString());
                 console.log('First forecast point:', new Date(futureForecast[0].time * 1000).toLocaleString());
