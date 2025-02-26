@@ -126,7 +126,7 @@ export default function Page() {
         }
       }
     } else {
-      // Signup mode
+      // Signup mode: require username and password.
       if (!username || !password) {
         setErrorMessage("Please fill in all fields.");
         return;
@@ -197,8 +197,9 @@ export default function Page() {
           <div className="text-green-500 text-center font-semibold">{message}</div>
         )}
 
-        {/* In Forgot Password mode, only show the Email field */}
+        {/* Render Form Fields */}
         {isForgot ? (
+          // Forgot Password Mode: only email field is shown.
           <div className="relative pt-[0.9375rem] mb-2">
             <input
               type="email"
@@ -298,22 +299,21 @@ export default function Page() {
               </div>
             </div>
 
-            {/* In login mode, show the Password Input */}
-            {mode === "login" && (
+            {/* If in signup mode, render the Username input */}
+            {mode === "signup" && (
               <div className="relative pt-[0.9375rem] mb-2">
                 <input
-                  id="password"
-                  type="password"
+                  type="text"
+                  id="username"
+                  name="username"
                   placeholder=" "
-                  title="Minimum 6 characters at least 1 Alphabet, 1 Number and 1 Symbol"
-                  pattern="^(?=.*[A-Za-z])(?=.*\d)(?=.*[\W_])[A-Za-z\d\W_]{6,}$"
                   required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="peer text-2xl text-[#1F2346] py-1.5 w-full pr-10 border-b-[3px] border-b-[#D1D1D1] bg-transparent transition-colors duration-200 focus:border-b-[#605DFF] outline-none"
                 />
                 <label
-                  htmlFor="password"
+                  htmlFor="username"
                   className="absolute left-0 bg-white pointer-events-none transition-all duration-300
                     peer-placeholder-shown:top-[1.2rem]
                     peer-placeholder-shown:text-[1.2rem]
@@ -324,38 +324,67 @@ export default function Page() {
                     peer-[&:not(:placeholder-shown)]:text-[1.2rem]
                     peer-[&:not(:placeholder-shown)]:text-[#605DFF]"
                 >
-                  Password
+                  Username
                 </label>
-                <div
-                  className="absolute right-0 top-1/2 transform -translate-y-1/2 pr-2 transition-colors duration-200
-                    peer-placeholder-shown:text-[#1F2346]
-                    peer-focus:text-[#605DFF]
-                    peer-[&:not(:placeholder-shown)]:text-[#605DFF]"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M8 11V7a4 4 0 018 0v4M6 11h12a2 2 0 012 2v7a2 2 0 01-2 2H6a2 2 0 01-2-2v-7a2 2 0 012-2z"
-                    />
-                  </svg>
-                </div>
               </div>
             )}
+
+            {/* Render Password Input for both login and signup modes */}
+            <div className="relative pt-[0.9375rem] mb-2">
+              <input
+                id="password"
+                type="password"
+                placeholder=" "
+                title="Minimum 6 characters at least 1 Alphabet, 1 Number and 1 Symbol"
+                pattern="^(?=.*[A-Za-z])(?=.*\d)(?=.*[\W_])[A-Za-z\d\W_]{6,}$"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="peer text-2xl text-[#1F2346] py-1.5 w-full pr-10 border-b-[3px] border-b-[#D1D1D1] bg-transparent transition-colors duration-200 focus:border-b-[#605DFF] outline-none"
+              />
+              <label
+                htmlFor="password"
+                className="absolute left-0 bg-white pointer-events-none transition-all duration-300
+                  peer-placeholder-shown:top-[1.2rem]
+                  peer-placeholder-shown:text-[1.2rem]
+                  peer-focus:top-[-0.8rem]
+                  peer-focus:text-[1.2rem]
+                  peer-focus:text-[#605DFF]
+                  peer-[&:not(:placeholder-shown)]:top-[-0.8rem]
+                  peer-[&:not(:placeholder-shown)]:text-[1.2rem]
+                  peer-[&:not(:placeholder-shown)]:text-[#605DFF]"
+              >
+                Password
+              </label>
+              <div
+                className="absolute right-0 top-1/2 transform -translate-y-1/2 pr-2 transition-colors duration-200
+                  peer-placeholder-shown:text-[#1F2346]
+                  peer-focus:text-[#605DFF]
+                  peer-[&:not(:placeholder-shown)]:text-[#605DFF]"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8 11V7a4 4 0 018 0v4M6 11h12a2 2 0 012 2v7a2 2 0 01-2 2H6a2 2 0 01-2-2v-7a2 2 0 012-2z"
+                  />
+                </svg>
+              </div>
+            </div>
           </>
         )}
 
         {/* Submit Button */}
         <button
           type="submit"
-          className="bg-[#605DFF] hover:bg-[#4a00e0] text-white font-extrabold text-xl flex justify-center items-center mt-4 py-3 min-h-[3.125rem] w-full rounded-full transition-all duration-300"
+          className="bg-[#605DFF] hover:bg-[#4a00e0] text-white font-extrabold text-xl flex justify-center items-center mt-4 py-3 min-h-[3.125rem] w-full rounded-2xl transition-all duration-300"
         >
           {isForgot
             ? "Send Reset Email"
@@ -370,7 +399,10 @@ export default function Page() {
             {isForgot ? (
               <button
                 type="button"
-                onClick={() => {setIsForgot(false); setMessage("");}}
+                onClick={() => {
+                  setIsForgot(false);
+                  setMessage("");
+                }}
                 className="text-[#515151] font-semibold hover:underline"
               >
                 Back to Login
