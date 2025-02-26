@@ -544,97 +544,13 @@ def predict_arima(ticker: str, period: str, interval: str) -> dict:
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
-@app.get("/data")
-def fetch_financial_data(ticker: str, period: str = "1y", interval: str = "1d"):
-    """
-    returns stock data for ticker
 
-    ticker: str\n
-    period: str = "1y"\n
-    interval: str = "1d"\n
-
-    returns: dict
-    """
-
-    logger.info(
-        f"Fetching data for ticker(s) {ticker} with period {period} and interval {interval}"
-    )
-    try:
-        stock_data = fetch_stock_data(
-            ticker=ticker, period=period, interval=interval, is_prediction=False
-        )
-        return stock_data
-    except Exception as e:
-        logger.error(f"Error fetching data for ticker(s) {ticker}: {e}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
 # ================================================================================================================================
 # === /predict endpoints ========================================================================================================
 # ================================================================================================================================
 
-
-class ARIMATrainResponse(BaseModel, arbitrary_types_allowed=True):
-    model: any
-    stock_data: dict
-
-
-@app.post("/predict_arima")
-def predict_arima(ticker: str, period: str, interval: str) -> dict:
-    """Predict future stock prices using the trained ARIMA model"""
-    
-
-    try:
-        # Create forecaster components
-        market_calendar = MarketCalendar()
-        config = ModelConfig()
-        
-        # Get forecaster via factory
-        forecaster = ForecastModelFactory.create_model(
-            "arima", 
-            market_calendar=market_calendar, 
-            config=config
-        )
-        
-        # Fetch stock data
-        stock_data = fetch_stock_data(
-            ticker=ticker, period=period, interval=interval, is_prediction=True
-        )
-        
-        # Transform data to DataFrame
-        df = pd.DataFrame(
-            index=pd.to_datetime(list(stock_data[ticker]["Close"].keys()))
-        )
-        df["Close"] = list(stock_data[ticker]["Close"].values())
-        df = df.dropna()
-        
-        if len(df) < 10:
-            raise ValueError(f"Not enough data points for {ticker}: {len(df)}")
-            
-        # Train model
-        logger.info(f"Training model for {ticker} with {period}/{interval}")
-        success = forecaster.train(df, period, interval)
-        
-        if not success:
-            raise ValueError("Failed to train model")
-            
-        # Generate forecast
-        result = forecaster.forecast()
-        
-        # Note: The to_dict() method returns data with the "forecast" ticker
-        # We need to replace it with the actual ticker
-        forecast_data = result.to_dict()
-        forecast_data[ticker] = forecast_data.pop("forecast")
-        
-        logger.info(f"Successfully generated forecast for {ticker}")
-        return forecast_data
-        
-    except ValueError as e:
-        logger.error(f"Validation error in predict_arima: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Error in predict_arima: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
 # --------------------------
