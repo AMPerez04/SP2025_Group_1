@@ -31,9 +31,9 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SESSION_SECRET_KEY", "super-secret-key"),
     session_cookie="session",  # name of the cookie
-    https_only=False,          # false for development; true in production with HTTPS
-    max_age=86400,             # persist for one day (86400 seconds)
-    same_site="lax"            # or "strict", depending on your needs
+    https_only=False,  # false for development; true in production with HTTPS
+    max_age=86400,  # persist for one day (86400 seconds)
+    same_site="lax",  # or "strict", depending on your needs
 )
 # MongoDB connection
 client = MongoClient(os.getenv("MONGO_URI"))
@@ -41,6 +41,7 @@ db = client["stock_dashboard"]
 
 # Create a password hashing context (using bcrypt)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 
 @app.get("/")
 def read_root():
@@ -216,13 +217,14 @@ async def remove_from_watchlist(request: WatchlistRequest):
 
     except Exception:
         return {"success": False}
-    
-    
+
+
 # ==============================================================================================================
 # Authentication Endpoints (Login & Signup)
 # ==============================================================================================================
 
-users = db["users"] # db collection w/ user info
+users = db["users"]  # db collection w/ user info
+
 
 class UserSignup(BaseModel):
     email: EmailStr
@@ -232,6 +234,12 @@ class UserSignup(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+class SettingsUpdateRequest(BaseModel):
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    new_password: Optional[str] = None 
+    password: str
+
 
 @app.post("/signup")
 async def signup(user: UserSignup):
@@ -244,20 +252,18 @@ async def signup(user: UserSignup):
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User with this email already exists."
+            detail="User with this email already exists.",
         )
     # Hash the password (in production, never store plain-text passwords)
     hashed_password = pwd_context.hash(user.password)
     new_user = {
         "email": email_lower,
         "username": user.username,
-        "password": hashed_password
+        "password": hashed_password,
     }
     result = users.insert_one(new_user)
-    return {
-        "message": "User created successfully.",
-        "user_id": str(result.inserted_id)
-    }
+    return {"message": "User created successfully.", "user_id": str(result.inserted_id)}
+
 
 @app.post("/login")
 async def login(request: Request, user: UserLogin):
@@ -267,36 +273,38 @@ async def login(request: Request, user: UserLogin):
     existing_user = users.find_one({"email": email_lower})
     if not existing_user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found."
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
         )
     if not pwd_context.verify(user.password, existing_user["password"]):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials."
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials."
         )
     # Store user information in the session
-    request.session.update({
-        "user": {
-            "email": existing_user["email"],
-            "username": existing_user["username"],
-            "user_id": str(existing_user["_id"]),
+    request.session.update(
+        {
+            "user": {
+                "email": existing_user["email"],
+                "username": existing_user["username"],
+                "user_id": str(existing_user["_id"]),
+            }
         }
-    })
+    )
     return {
         "message": "Login successful.",
         "user": {
             "email": existing_user["email"],
             "username": existing_user["username"],
             "user_id": str(existing_user["_id"]),
-        }
+        },
     }
-    
+
+
 @app.post("/logout")
 async def logout(request: Request):
     # Clear the session
     request.session.clear()
     return {"message": "Logged out successfully."}
+
 
 @app.get("/session")
 async def get_session(request: Request):
@@ -306,6 +314,66 @@ async def get_session(request: Request):
         return {"user": user}
     else:
         return {"user": None}
+    
+@app.post("/update-settings")
+async def update_settings(request: Request, update: SettingsUpdateRequest):
+    """
+    Endpoint for updating the user's account settings.
+    The user may update their username, email, and/or password.
+    In all cases, the current password must be provided for confirmation.
+    """
+    # Ensure the user is authenticated.
+    session_user = request.session.get("user")
+    if not session_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not authenticated."
+        )
+
+    user_id = session_user["user_id"]
+    user_doc = users.find_one({"_id": ObjectId(user_id)})
+    if not user_doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found."
+        )
+
+    # Verify the provided current password.
+    if not pwd_context.verify(update.password, user_doc["password"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect current password."
+        )
+
+    # Build the update fields.
+    update_fields = {}
+    if update.username and update.username != user_doc["username"]:
+        update_fields["username"] = update.username
+    if update.email and update.email != user_doc["email"]:
+        # Optionally check if the new email is already in use.
+        if users.find_one({"email": update.email}):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already in use."
+            )
+        update_fields["email"] = update.email
+    if update.new_password:
+        # Hash the new password before updating.
+        hashed_new_password = pwd_context.hash(update.new_password)
+        update_fields["password"] = hashed_new_password
+
+    if not update_fields:
+        return {"message": "No changes made."}
+
+    users.update_one({"_id": ObjectId(user_id)}, {"$set": update_fields})
+
+    # Update the session with new info (do not store password here).
+    for field in ["username", "email"]:
+        if field in update_fields:
+            session_user[field] = update_fields[field]
+    request.session["user"] = session_user
+
+    return {"message": "Settings updated successfully.", "user": session_user}
 
 
 # ================================================================================================================================

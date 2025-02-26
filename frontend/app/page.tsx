@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect  } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useStore } from "@/zustand/store"; // adjust as needed
-import { login, signup } from "@/app/utils/auth_api"; // adjust the path as needed
+import { useStore } from "@/zustand/store";
+import { login, signup } from "@/app/utils/auth_api";
 import { BACKEND_URL } from "@/zustand/store";
+import { toast } from "sonner";
+import { TriangleAlert } from "lucide-react";
 
 export default function Page() {
   // "login" and "signup" mode for auth form.
@@ -26,11 +28,9 @@ export default function Page() {
 
   // Get the setUser method from our Zustand store.
   const setUser = useStore((state) => state.setUser);
-
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-  // Next.js router for redirection.
   const router = useRouter();
+  const { setError } = useStore((state) => state);
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -70,7 +70,13 @@ export default function Page() {
 
     // Validate email format (applies to all modes)
     if (!emailRegex.test(email)) {
-      setErrorMessage("Please enter a valid email address.");
+      toast.error("ERROR", {
+        description: "Please enter a valid email address",
+        style: { borderLeft: "7px solid #d32f2f" },
+        position: "bottom-right",
+        icon: <TriangleAlert width={30} />,
+        duration: 2000,
+      });
       return;
     }
 
