@@ -34,10 +34,7 @@ def fetch_stock_data(
 
         if stock_data.empty:
             raise ValueError(f"No data available for ticker {ticker}")
-
-        logger.info(
-            f"length of data: {len(stock_data)} for period {period} and interval {interval}"
-        )
+        
         # Convert index to NY timezone
         if stock_data.index.tz is None:
             stock_data.index = stock_data.index.tz_localize('UTC')
@@ -59,5 +56,4 @@ def fetch_stock_data(
         return result
 
     except Exception as e:
-        logger.error(f"Error fetching data for ticker(s) {ticker}: {str(e)}")
-        raise
+        raise ValueError(f"Error fetching data for ticker {ticker}: {e}")

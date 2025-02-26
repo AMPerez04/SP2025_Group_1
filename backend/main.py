@@ -136,6 +136,8 @@ class WatchlistTicker(BaseModel):
     Ticker: str
     FullName: str
     Icon: str
+    MarketName: str
+    MarketLogo: str
 
 
 class WatchlistRequest(BaseModel):
@@ -211,10 +213,7 @@ async def remove_from_watchlist(request: WatchlistRequest):
         ticker_exists = any(
             item["Ticker"] == ticker for item in watchlist_collection.get("Tickers", [])
         )
-        # check if ticker is in user's watchlist
-        ticker_exists = any(
-            item["Ticker"] == ticker for item in watchlist_collection.get("Tickers", [])
-        )
+        
         if ticker_exists:
             watchlists.update_one(
                 {"_id": mongo_id},
@@ -459,9 +458,7 @@ def fetch_financial_data(ticker: str, period: str = "1y", interval: str = "1d"):
     returns: dict
     """
 
-    logger.info(
-        f"Fetching data for ticker(s) {ticker} with period {period} and interval {interval}"
-    )
+    
     try:
         stock_data = fetch_stock_data(
             ticker=ticker,
@@ -470,8 +467,7 @@ def fetch_financial_data(ticker: str, period: str = "1y", interval: str = "1d"):
         )
         return stock_data
     except Exception as e:
-        logger.error(f"Error fetching data for ticker(s) {ticker}: {e}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
 
 
 # ================================================================================================================================
@@ -516,7 +512,6 @@ def predict_arima(ticker: str, period: str, interval: str) -> dict:
             raise ValueError(f"Not enough data points for {ticker}: {len(df)}")
 
         # Train model
-        logger.info(f"Training model for {ticker} with {period}/{interval}")
         success = forecaster.train(df, period, interval)
 
         if not success:
@@ -530,26 +525,16 @@ def predict_arima(ticker: str, period: str, interval: str) -> dict:
         forecast_data = result.to_dict()
         forecast_data[ticker] = forecast_data.pop("forecast")
 
-        logger.info(f"Successfully generated forecast for {ticker}")
         return forecast_data
 
     except ValueError as e:
-        logger.error(f"Validation error in predict_arima: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error in predict_arima: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
-
-
-# ================================================================================================================================
-# === /predict endpoints ========================================================================================================
-# ================================================================================================================================
-
+        raise HTTPException(status_code=500, detail=f"Internal Server Error {e}")
 
 # --------------------------
 # Forgot Password Functionality
 # --------------------------
-
 
 # Define a Pydantic model for forgot password request
 class ForgotPasswordRequest(BaseModel):

@@ -49,7 +49,6 @@ interface Store {
   setUser: (newUser: User) => void;
   resetUser: () => void;
 
-  error: string | null;
 
 
   // watchlist items
@@ -180,8 +179,7 @@ export const useStore = create<Store>((set, get) => ({
         throw new Error("ERROR: Unable to add ticker to watchlist");
       }
     } catch (error) {
-      console.error("ERROR: Unable to add ticker to watchlist:", error);
-      get().setError(`Unable to add $${ticker} to your watchlist`);
+      console.error(`ERROR: Unable to add $${ticker} to watchlist:`, error);
     }
 
 
@@ -219,21 +217,18 @@ export const useStore = create<Store>((set, get) => ({
         throw new Error("ERROR: Unable to remove ticker from watchlist");
       }
     } catch (error) {
-      console.error("ERROR: Unable to remove from watchlist:", error);
-      get().setError(`Unable to remove $${ticker} from your watchlist`);
+      console.error(`ERROR: Unable to remove $${ticker} from watchlist:`, error);
     }
   },
   financialData: {},
   fetchFinancialData: async (ticker, period = "1y" as Period, interval = "1d" as Interval) => {
     const validIntervals = period === 'ytd' ? getYtdIntervals() : periodIntervalMap[period];
     if (!validIntervals.includes(interval)) {
-      console.warn(`Invalid interval ${interval} for period ${period}. Defaulting to ${validIntervals[0]}`);
       interval = validIntervals[0];
       set({ selectedInterval: interval });
 
     }
 
-    console.log("Fetching financial data for:", { ticker, period, interval });
     try {
       set({ financialData: {} });
 
@@ -241,11 +236,8 @@ export const useStore = create<Store>((set, get) => ({
       const rawData = await response.json();
 
       if (!rawData || Object.keys(rawData).length === 0) {
-        console.error('Error: rawData is undefined, null, or empty');
-        set({ financialData: {} });
-        return;
+        throw new Error('ERROR: rawData is undefined, null, or empty');
       }
-
 
       const transformedData = Object.keys(rawData).reduce((acc, asset) => {
         const assetData = rawData[asset];
@@ -263,9 +255,7 @@ export const useStore = create<Store>((set, get) => ({
       }, {} as Record<string, { time: number; value: number }[]>);
 
       if (Object.keys(transformedData).length === 0) {
-        console.warn("Warning: Transformed data is empty");
-        set({ financialData: {} });
-        return;
+        throw new Error('ERROR: transformedData is empty');
       }
 
       set({ financialData: transformedData });
@@ -273,6 +263,7 @@ export const useStore = create<Store>((set, get) => ({
     } catch (error) {
       console.error('Error fetching watchlist financial data:', error);
       set({ financialData: {} });
+      return;
     }
   },
 
@@ -319,15 +310,11 @@ export const useStore = create<Store>((set, get) => ({
 
   forecastData: {},
   loading: false,
-  error: null,
   fetchForecast: async (ticker, period = "1y", interval = "1d") => {
     if (!periodIntervalMap[period].includes(interval)) {
-      console.warn(`Invalid interval ${interval} for period ${period}. Defaulting to ${periodIntervalMap[period][0]}`);
       interval = periodIntervalMap[period][0];
       set({ selectedInterval: interval });
     }
-    console.log("Fetching forecast data for:", { ticker, period, interval });
-    set({ loading: true, error: null });
     try {
       const response = await fetch(`${BACKEND_URL}/predict_arima?ticker=${ticker}&period=${period}&interval=${interval}`, {
         method: "POST",
@@ -339,34 +326,26 @@ export const useStore = create<Store>((set, get) => ({
         throw new Error(`Error: ${response.statusText}`);
       }
 
-      // const data = await response.json();
-      // 
-      // set({ forecastData: data });
+      
       const rawData = await response.json();
 
       if (!rawData || Object.keys(rawData).length === 0) {
-        console.error('Error: rawData is undefined, null, or empty');
-        set({ forecastData: null });
-        return;
+        throw new Error('Error: rawData is undefined, null, or empty');
       }
 
-      // Apply normalizeTime to the data
       const normalizedData = Object.keys(rawData).reduce((acc, asset) => {
-        acc[asset] = rawData[asset].map((point: any) => ({
+        acc[asset] = rawData[asset].map((point: { time: string; value: number }) => ({
           time: normalizeTime(point.time),
           value: point.value,
         }));
         return acc;
       }, {} as Record<string, { time: number; value: number }[]>);
 
-      // Log the normalized data for debugging
-      console.log("Normalized forecast data:", normalizedData);
-
       // Set the forecastData in the same style it was served before
       set({ forecastData: normalizedData });
     } catch (error) {
-      console.error("Error fetching forecast data:", error);
-      set({ error: "Error fetching forecast data" });
+      console.error('Error fetching forecast data:', error);
+      set({ forecastData: null });
     } finally {
       set({ loading: false });
     }

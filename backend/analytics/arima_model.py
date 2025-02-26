@@ -198,9 +198,7 @@ class ModelConfig:
         try:
             return ModelConfig.PDQ_MAP[period][interval]
         except KeyError:
-            logger.warning(
-                f"No default parameters for {period}/{interval}, using (1,0,1)"
-            )
+
             return (1, 0, 1)
 
     @staticmethod
@@ -209,7 +207,6 @@ class ModelConfig:
         try:
             return ModelConfig.PERIOD_STEP_MAP[period][interval]
         except KeyError:
-            logger.warning(f"No step config for {period}/{interval}, using 10")
             return 10
 
 
@@ -248,15 +245,10 @@ class TimeSeriesForecaster:
         self.training_data = data
 
         if len(data) < 10:
-            logger.error("Not enough data points for training")
             return False
-
-        logger.info(f"Training model for {period}/{interval} with {len(data)} points")
-        logger.info(f"Data range: min={data['Close'].min()}, max={data['Close'].max()}")
 
         # Check for data issues
         if data["Close"].isnull().any() or data["Close"].std() == 0:
-            logger.error("Invalid data: contains null values or no price variation")
             return False
 
         # Store the last timestamp for forecasting
@@ -264,7 +256,6 @@ class TimeSeriesForecaster:
 
         # Get default parameters and try to fit model
         best_order = self.config.get_default_parameters(period, interval)
-        logger.info(f"Using initial model parameters: {best_order}")
 
         try:
             # Try with default parameters first
@@ -280,10 +271,7 @@ class TimeSeriesForecaster:
 
             return True
 
-        except Exception as e:
-            logger.warning(
-                f"Error with default parameters: {str(e)}, trying grid search"
-            )
+        except Exception:
 
             # Grid search for better parameters
             best_aic = float("inf")
@@ -294,7 +282,6 @@ class TimeSeriesForecaster:
                     for q in range(0, 3):
                         try:
                             order = (p, d, q)
-                            logger.debug(f"Testing ARIMA{order}")
                             model = ARIMA(data["Close"], order=order)
                             model_fit = model.fit()
 
@@ -306,21 +293,15 @@ class TimeSeriesForecaster:
                             ):
                                 best_aic = model_fit.aic
                                 best_model = model_fit
-                                logger.info(
-                                    f"Found better model with AIC {best_aic}, order={order}"
-                                )
 
-                        except Exception as err:
-                            logger.debug(f"Error with ARIMA{order}: {str(err)}")
+                        except Exception:
                             continue
 
             if best_model is not None:
                 self.model_fit = best_model
                 return True
             else:
-                logger.error("Could not find valid model parameters")
                 return False
-
     def forecast(self, steps: int = None) -> "ForecastResult":
         """
         Generate forecast using the trained model
@@ -336,13 +317,9 @@ class TimeSeriesForecaster:
 
         if steps is None:
             steps = self.config.get_forecast_steps(self.period, self.interval)
-
-        logger.info(f"Forecasting {steps} steps ahead")
-
         try:
             # Generate the raw forecast values
             forecast_values = self.model_fit.forecast(steps=steps)
-            logger.info(f"Raw forecast values: {forecast_values}")
 
             # Convert forecast values to a simple numpy array
             forecast_array = (
@@ -355,19 +332,15 @@ class TimeSeriesForecaster:
             future_dates = self.market_calendar.generate_forecast_dates(
                 self.last_timestamp, self.interval, steps
             )
-            logger.info(f"Generated future dates: {future_dates}")
 
             # Ensure lengths match before creating Series
             min_length = min(len(future_dates), len(forecast_array))
-            logger.info(
-                f"Length match: {len(future_dates) == len(forecast_array)}, Lengths: {len(future_dates)}, {len(forecast_array)}"
-            )
+            
 
             # Create forecast series directly from arrays
             forecast_series = pd.Series(
                 data=forecast_array[:min_length], index=future_dates[:min_length]
             )
-            logger.info(f"Final forecast series: {forecast_series}")
 
             return ForecastResult(
                 historical_series=self.training_data["Close"],
@@ -375,8 +348,7 @@ class TimeSeriesForecaster:
             )
 
         except Exception as e:
-            logger.error(f"Error generating forecast: {str(e)}")
-            raise
+            raise ValueError(f"Error generating forecast: {e}")
 
 
 class ForecastResult:
