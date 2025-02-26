@@ -40,7 +40,7 @@ const TimePeriodSelector: React.FC = () => {
               className={cn(
                 "w-24 px-4 py-2 border-c last:border-0 text-center",
                 selectedPeriod === period
-                  ? "bg-sidebar-accent text-white"
+                  ? "bg-gray-500 rounded text-white"
                   : "bg-transparent text-gray-500 hover:bg-sidebar-hover"
               )}
             >
@@ -60,7 +60,7 @@ const TimePeriodSelector: React.FC = () => {
               className={cn(
                 "w-24 px-4 py-2 border-c last:border-0 text-center",
                 selectedInterval === interval
-                  ? "bg-sidebar-accent text-white"
+                  ? "bg-gray-500 rounded text-white"
                   : "bg-transparent text-gray-500 hover:bg-sidebar-hover"
               )}
             >
