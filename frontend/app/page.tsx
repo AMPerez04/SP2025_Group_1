@@ -30,7 +30,6 @@ export default function Page() {
   const setUser = useStore((state) => state.setUser);
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const router = useRouter();
-  const { setError } = useStore((state) => state);
 
   useEffect(() => {
     const fetchSession = async () => {
