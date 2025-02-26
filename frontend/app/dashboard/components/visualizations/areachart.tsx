@@ -42,7 +42,7 @@ const AreaChart: React.FC = () => {
         timeVisible: intradayIntervals.includes(selectedInterval),
         secondsVisible: false,
         rightOffset: 5,
-        barSpacing: 5,
+        barSpacing: 0,
         fixLeftEdge: true,
         fixRightEdge: true,
       },

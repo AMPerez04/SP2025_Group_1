@@ -1,9 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { createChart, ISeriesApi, LineData, UTCTimestamp, AreaSeriesPartialOptions, AreaSeries } from 'lightweight-charts';
-import { useStore, TimeSeriesPoint } from '../../../../zustand/store';
-import { Interval } from '../../../../lib/utils';
+import { useStore } from '../../../../zustand/store';
+import { Interval, formatChartTime } from '../../../../lib/utils';
 const intradayIntervals: Interval[] = ["1m", "5m", "15m", "30m", "1h"] as const;
-
 
 const ForecastChart: React.FC = () => {
     const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -24,7 +23,7 @@ const ForecastChart: React.FC = () => {
     }, [fetchFinancialData, fetchForecast, selectedAsset, selectedPeriod, selectedInterval]);
 
     useEffect(() => {
-        if (!chartContainerRef.current) return;
+        if (!chartContainerRef.current || !selectedAsset || !financialData[selectedAsset.ticker]) return;
 
         // Make sure chart is configured to display times correctly
         const chart = createChart(chartContainerRef.current, {
@@ -50,80 +49,98 @@ const ForecastChart: React.FC = () => {
                 fixRightEdge: true,
                 minBarSpacing: 10,
                 uniformDistribution: true,
-                tickMarkFormatter: (time: number) => {
-                    const date = new Date(time * 1000);
-                    // Use different formats for different interval types
-                    if (intradayIntervals.includes(selectedInterval)) {
-                        return date.toLocaleTimeString([], { hour: 'numeric' });
-                    } else if (selectedInterval === "1d") {
-                        return date.toLocaleDateString([], { month: 'short' });
-                    } else {
-                        return date.toLocaleDateString([], { month: 'short' });
-                    }
-                }
+                tickMarkFormatter: (time: number) => formatChartTime(time, selectedInterval)
             },
         });
 
-
-        if (selectedAsset && financialData[selectedAsset.ticker]) {
-            const data: LineData[] = financialData[selectedAsset.ticker].map((item: TimeSeriesPoint) => ({
-                time: item.time as UTCTimestamp, // Cast to UTCTimestamp
+        const data: LineData[] = financialData[selectedAsset.ticker]
+            .map((item) => ({
+                time: item.time as UTCTimestamp,
                 value: item.value,
-            }));
-            const color = data.length > 0 && data[data.length - 1].value < data[0].value ? '#e22e29' : '#2d9c41';
-            const areaSeriesOptions: AreaSeriesPartialOptions = {
-                topColor: color,
-                bottomColor: '#ffffff',
-                lineColor: color,
-                lineWidth: 2,
-            };
-            const areaSeries: ISeriesApi<'Area'> = chart.addSeries(AreaSeries, areaSeriesOptions);
+            }))
+            .sort((a, b) => (a.time as number) - (b.time as number));
 
-            areaSeries.setData(data);
-            if (forecastData && !error) {
-                // Convert forecast to TimeSeriesPoint format
-                const forecast: LineData[] = forecastData[selectedAsset.ticker]
-                    .filter((item: TimeSeriesPoint) => item.value !== null && !isNaN(item.value))
-                    .map((item: TimeSeriesPoint) => ({
+        // Set up historical data series
+        const color = data.length > 0 && data[data.length - 1].value < data[0].value ? '#e22e29' : '#2d9c41';
+        const areaSeries = chart.addSeries(AreaSeries, {
+            topColor: color,
+            bottomColor: '#ffffff',
+            lineColor: color,
+            lineWidth: 2,
+        });
+        areaSeries.setData(data);
+
+        if (forecastData && forecastData[selectedAsset.ticker] && !error) {
+            // Convert and deduplicate forecast data timestamps
+            const uniqueForecast = Array.from(new Map(
+                forecastData[selectedAsset.ticker]
+                    .filter((item) => item.value !== null && !isNaN(item.value))
+                    .map((item) => ({
                         time: item.time as UTCTimestamp,
                         value: item.value,
-                    }));
+                    }))
+                    .map(item => [item.time, item])
+            ).values()).sort((a, b) => (a.time as number) - (b.time as number));
 
-                // Get the last point from historical data
-                const lastHistoricalPoint = financialData[selectedAsset.ticker][financialData[selectedAsset.ticker].length - 1];
+            const lastHistoricalPoint = data[data.length - 1];
 
-                // Create connected forecast BEFORE setting the data
+            // Create connected forecast ensuring unique timestamps
+            const futureForecast = uniqueForecast.filter(point =>
+                (point.time as number) > (lastHistoricalPoint.time as number)
+            );
+            console.log('Future forecast length:', futureForecast.length);
+            if (futureForecast.length > 0) {
+                console.log('Last historical point:', new Date((lastHistoricalPoint.time as number) * 1000).toLocaleString());
+                console.log('First forecast point:', new Date(futureForecast[0].time * 1000).toLocaleString());
+                console.log('Time difference:', futureForecast[0].time - (lastHistoricalPoint.time as number));
+
                 const connectedForecast = [
-                    {
-                        time: lastHistoricalPoint.time as UTCTimestamp,
-                        value: lastHistoricalPoint.value
-                    },
-                    ...forecast
+                    lastHistoricalPoint,
+                    // Only add bridge if gap is more than 5 minutes
+                    ...((futureForecast[0].time as number) > ((lastHistoricalPoint.time as number) + 300) ? [{
+                        time: ((lastHistoricalPoint.time as number) + 60) as UTCTimestamp,
+                        value: (lastHistoricalPoint.value + futureForecast[0].value) / 2
+                    }] : []),
+                    ...futureForecast
                 ];
-
-                const forecastColor = forecast.length > 0 &&
-                    forecastData[selectedAsset.ticker][forecast.length - 1].value <
-                    data[data.length - 1].value ? '#e22e29' : '#2d9c41';
-
-                const forecastAreaSeries = chart.addSeries(AreaSeries, {
-                    topColor: forecastColor,
-                    bottomColor: '#ffffff',
-                    lineColor: forecastColor,
-                    lineWidth: 2,
-                    lineStyle: 1, // 0: solid, 1: dotted, 2: dashed
+                // Verify no duplicates
+                const timeSet = new Set();
+                const hasDuplicates = connectedForecast.some(point => {
+                    if (timeSet.has(point.time)) return true;
+                    timeSet.add(point.time);
+                    return false;
                 });
 
-                // After setting data, fit content and force time scale consistency
-                forecastAreaSeries.setData(connectedForecast);
-                chart.timeScale().fitContent();
-                chart.timeScale().applyOptions({
-                    barSpacing: 12, // Ensure consistent spacing
-                });
+                if (!hasDuplicates) {
+                    const forecastColor = futureForecast[futureForecast.length - 1].value < lastHistoricalPoint.value
+                        ? '#e22e29'
+                        : '#2d9c41';
+
+                    const forecastAreaSeries = chart.addSeries(AreaSeries, {
+                        topColor: forecastColor,
+                        bottomColor: '#ffffff',
+                        lineColor: forecastColor,
+                        lineWidth: 2,
+                        lineStyle: 1,
+                    });
+
+                    forecastAreaSeries.setData(connectedForecast);
+                } else {
+                    console.error('Duplicate timestamps detected in forecast data');
+                }
             }
+
+            chart.timeScale().applyOptions({
+                barSpacing: 12,
+            });
         }
-        return () => {
-            chart.remove();
-        };
+
+        // chart.timeScale().fitContent();
+        chart.timeScale().applyOptions({
+            barSpacing: 12,
+        });
+        chart.timeScale().fitContent();
+        return () => chart.remove();
     }, [financialData, forecastData, selectedAsset, error, selectedInterval]);
 
     return <div ref={chartContainerRef} style={{ width: '100%', height: '400px', margin: '0 auto' }} />;

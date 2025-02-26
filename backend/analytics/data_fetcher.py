@@ -50,7 +50,7 @@ def fetch_stock_data(
         result = {ticker: {}}
         for column in ["Open", "High", "Low", "Close", "Volume"]:
             result[ticker][column] = {
-                str(date): float(value)
+                date.isoformat(): float(value)
                 for date, value in zip(stock_data.index, stock_data[(ticker, column)])
                 if pd.notna(value)
             }

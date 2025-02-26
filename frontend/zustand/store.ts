@@ -216,7 +216,6 @@ export const useStore = create<Store>((set, get) => ({
       set({ selectedInterval: interval });
 
     }
-
     console.log("Fetching financial data for:", { ticker, period, interval });
     try {
       set({ financialData: {} });
@@ -229,7 +228,6 @@ export const useStore = create<Store>((set, get) => ({
         set({ financialData: {} });
         return;
       }
-
 
       const transformedData = Object.keys(rawData).reduce((acc, asset) => {
         const assetData = rawData[asset];
@@ -322,7 +320,9 @@ export const useStore = create<Store>((set, get) => ({
         throw new Error(`Error: ${response.statusText}`);
       }
       const data = await response.json();
+      
       set({ forecastData: data });
+
     } catch (error) {
       console.error("Error fetching forecast data:", error);
       set({ error: "Error fetching forecast data" });
@@ -331,6 +331,3 @@ export const useStore = create<Store>((set, get) => ({
     }
   },
 }));
-
-
-

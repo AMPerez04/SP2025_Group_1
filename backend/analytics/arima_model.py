@@ -1,433 +1,458 @@
-# backend/analytics/arima_model.py
+# backend/analytics/arima_model_modular.py
 import pandas as pd
+import numpy as np
 from statsmodels.tsa.arima.model import ARIMA, ARIMAResults
-import logging
-from datetime import datetime
-from pandas.tseries.offsets import BDay, BusinessHour, CustomBusinessDay
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from pandas.tseries.holiday import USFederalHolidayCalendar
+from pandas.tseries.offsets import CustomBusinessDay, BusinessHour
+import logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    filename="backend.log",
-    filemode="a",
-    format="%(asctime)s - %(levelname)s - %(message)s",
-)
 logger = logging.getLogger(__name__)
 
-pdq_map = {
-    "1d": {
-        "1m": (1, 0, 1),
-        "5m": (1, 0, 1),
-        "15m": (2, 0, 2),
-        "30m": (2, 0, 2),
-        "1h": (2, 0, 2),
-    },
-    "5d": {
-        "5m": (1, 0, 1),
-        "15m": (2, 0, 2),
-        "30m": (2, 0, 2),
-        "1h": (2, 0, 2),
-    },
-    "1mo": {
-        "1h": (2, 1, 2),
-        "1d": (2, 1, 2),
-    },
-    "3mo": {
-        "1d": (3, 1, 3),
-        "1wk": (2, 1, 2),
-    },
-    "6mo": {
-        "1d": (3, 1, 3),
-        "1wk": (2, 1, 2),
-    },
-    "1y": {
-        "1d": (3, 1, 3),
-        "1wk": (2, 1, 2),
-        "1mo": (2, 1, 2),
-    },
-    "2y": {
-        "1wk": (3, 1, 3),
-        "1mo": (3, 1, 3),
-    },
-    "5y": {
-        "1wk": (3, 1, 3),
-        "1mo": (3, 1, 3),
-    },
-    "10y": {
-        "1mo": (3, 1, 3),
-    },
-    "ytd": {
-        "1m": (1, 1, 1),
-        "5m": (1, 1, 1),
-        "15m": (1, 1, 1),
-        "30m": (1, 1, 1),
-        "1h": (2, 1, 1),
-        "1d": (3, 1, 3),
-        "1wk": (2, 1, 2),
-    },
-    "max": {
-        "1mo": (3, 1, 3),
-    },
-}
 
+# Market Calendar System - handles all time-related operations
+class MarketCalendar:
+    def __init__(self):
+        self.calendar = USFederalHolidayCalendar()
 
-def get_ytd_intervals() -> list[str]:
-    """
-    Get appropriate intervals for YTD based on current date
-    """
-    today = datetime.now()
-    start_of_year = datetime(today.year, 1, 1)
-    days_ytd = (today - start_of_year).days
+    def is_market_open(self, timestamp: pd.Timestamp) -> bool:
+        """Check if given timestamp is within market hours"""
+        if timestamp.tz is None:
+            timestamp = pd.Timestamp(timestamp, tz="UTC").tz_convert("America/New_York")
 
-    if days_ytd <= 7:
-        return ["1m", "5m", "15m", "30m", "1h", "1d"]
-    elif days_ytd <= 60:
-        return ["5m", "15m", "30m", "1h", "1d"]
-    else:
-        return ["1d", "1wk"]
+        # Check if it's a weekday
+        if timestamp.weekday() > 4:  # 5 = Saturday, 6 = Sunday
+            return False
 
+        # Check if it's a holiday
+        holidays = self.calendar.holidays(start=timestamp, end=timestamp)
+        if timestamp.date() in holidays:
+            return False
 
-period_interval_map = {
-    "1d": ["1m", "5m", "15m", "30m", "1h"],
-    "5d": ["5m", "15m", "30m", "1h"],
-    "1mo": ["1h", "1d"],
-    "3mo": ["1d", "1wk"],
-    "6mo": ["1d", "1wk"],
-    "1y": ["1d", "1wk", "1mo"],
-    "2y": ["1wk", "1mo"],
-    "5y": ["1wk", "1mo"],
-    "10y": ["1mo"],
-    "ytd": get_ytd_intervals(),
-    "max": ["1mo"],
-}
+        # Check if within market hours (9:30 AM - 4:00 PM)
+        is_within_hours = (
+            timestamp.hour > 9 or (timestamp.hour == 9 and timestamp.minute >= 30)
+        ) and (timestamp.hour < 16)
 
+        return is_within_hours
 
-def get_ytd_steps() -> dict[str, int]:
-    """
-    Get appropriate step sizes for YTD predictions based on current date
-    Returns step counts that result in ~24 hour forecasts for intraday
-    and ~5 day forecasts for daily/weekly
-    """
-    today = datetime.now()
-    start_of_year = datetime(today.year, 1, 1)
-    days_ytd = (today - start_of_year).days
+    def intervals_until_market_close(
+        self, timestamp: pd.Timestamp, interval_minutes: int
+    ) -> int:
+        """Calculate how many intervals are left until the market closes (4:00 PM EST)"""
+        if timestamp.tz is None:
+            timestamp = pd.Timestamp(timestamp, tz="UTC").tz_convert("America/New_York")
+        elif str(timestamp.tz) != "America/New_York":
+            timestamp = timestamp.tz_convert("America/New_York")
 
-    if days_ytd <= 7:
-        return {
-            "1m": 60,
-            "5m": 12,
-            "15m": 8,
-            "30m": 8,
-            "1h": 8,
-            "1d": 5,
-        }
-    elif days_ytd <= 60:
-        return {
-            "5m": 72,
-            "15m": 32,
-            "30m": 24,
-            "1h": 12,
-            "1d": 5,
-        }
-    else:
-        return {"1d": 10, "1wk": 4}
+        # If the market is already closed
+        if timestamp.hour >= 16 or (timestamp.hour == 15 and timestamp.minute >= 30):
+            return 0
 
+        # Calculate the number of intervals left until market close
+        market_close = timestamp.replace(hour=16, minute=0, second=0)
+        remaining_minutes = (market_close - timestamp).total_seconds() / 60
+        intervals_left = int(remaining_minutes // interval_minutes)
 
-period_step_map = {
-    "1d": {"1m": 10, "5m": 6, "15m": 4, "30m": 2, "1h": 1},
-    "5d": {"5m": 20, "15m": 10, "30m": 6, "1h": 4},
-    "1mo": {"1h": 12, "1d": 5},
-    "3mo": {"1d": 15, "1wk": 4},
-    "6mo": {"1d": 30, "1wk": 8},
-    "1y": {"1d": 50, "1wk": 12, "1mo": 3},
-    "2y": {"1wk": 24, "1mo": 6},
-    "5y": {"1wk": 50, "1mo": 12},
-    "10y": {"1mo": 24},
-    "ytd": get_ytd_steps(),
-    "max": {"1mo": 36},
-}
+        return intervals_left
 
-
-# def train_arima_model(df: pd.DataFrame, period: str, interval: str) -> tuple[ARIMAResults, pd.DatetimeIndex]:
-#     """
-#     Train an ARIMA model on the provided data
-
-#     Args:
-#         df: DataFrame with price data
-#         period: Time period of data
-#         interval: Time interval of data
-#     """
-
-#     min_points = {
-#         "1d": {
-#             "1m": 30,
-#             "5m": 6,
-#             "15m": 4,
-#             "30m": 4,
-#             "1h": 4,
-#         },
-#         "5d": {
-#             "5m": 24,
-#             "15m": 16,
-#             "30m": 12,
-#             "1h": 8,
-#         },
-#         "ytd": {
-#             "5m": 72,
-#             "15m": 32,
-#             "30m": 24,
-#             "1h": 12,
-#             "1d": 5,
-#             "1wk": 4,
-#         },
-#         "default": {
-#             "1d": 20,
-#             "1wk": 8,
-#             "1mo": 12,
-#         },
-#     }
-
-#     if period in min_points:
-#         required_points = min_points[period].get(
-#             interval, min_points["default"].get(interval, 30)
-#         )
-#     else:
-#         required_points = min_points["default"].get(interval, 30)
-
-#     if len(df) < required_points:
-#         raise ValueError(
-#             f"Not enough data points. Need at least {required_points} for {period}/{interval}"
-#         )
-
-#     df["Close"] = df["Close"].ffill().bfill()
-
-#     if df["Close"].isnull().any() or df["Close"].std() == 0:
-#         raise ValueError("Invalid data: contains null values or no price variation")
-
-#     order = pdq_map[period][interval]
-
-#     try:
-        
-#         model = ARIMA(df["Close"], order=order)
-#         model_fit = model.fit()
-#         return model_fit,df.index
-#     except Exception as e:
-#         logger.error(f"Error training ARIMA model: {str(e)}")
-#         raise
-
-def train_arima_model(df: pd.DataFrame, period: str, interval: str) -> tuple[ARIMAResults, pd.DatetimeIndex]:
-    """Train ARIMA model with validation"""
-    logger.info(f"Initial data shape: {df.shape}")
-    logger.info(f"Initial data head:\n{df.head()}")
-    logger.info(f"Any nulls in input: {df['Close'].isnull().any()}")
-    if df["Close"].isnull().any() or df["Close"].std() == 0:
-        logger.error("Invalid data: contains null values or no price variation")
-        raise ValueError("Invalid data: contains null values or no price variation")
-
-    # Make data stationary by differencing
-    differenced = df["Close"].diff().dropna()
-    logger.info(f"After differencing - any nulls: {differenced.isnull().any()}")
-
-    
-    # Start with predefined order from pdq_map
-    best_order = pdq_map[period][interval]
-    logger.info(f"Using initial order {best_order} from pdq_map")
-    
-    try:
-        # Try predefined order first
-        model = ARIMA(df["Close"], order=best_order)
-        model_fit = model.fit()
-        logger.info(f"Model fit params: {model_fit.params}")
-        logger.info(f"Model AIC: {model_fit.aic}")
-        
-        # # If predefined fails, try grid search
-        # if pd.isna(model_fit.aic):
-        #     best_aic = float("inf")
-        #     best_order = None
-            
-        #     for p in range(0, 3):
-        #         for d in range(0, 2):
-        #             for q in range(0, 3):
-        #                 try:
-        #                     model = ARIMA(df["Close"], order=(p, d, q))
-        #                     model_fit = model.fit()
-        #                     if model_fit.aic < best_aic:
-        #                         best_aic = model_fit.aic
-        #                         best_order = (p, d, q)
-        #                 except Exception as e:
-        #                     logger.error(f"Error trying ARIMA({p},{d},{q}): {str(e)}")
-        #                     continue
-            
-        #     if best_order is None:
-        #         raise ValueError("Could not find valid ARIMA parameters")
-                
-            # # Train final model with best parameters
-            # model = ARIMA(df["Close"], order=best_order)
-            # model_fit = model.fit()
-        
-        # # Validate model
-        # residuals = pd.DataFrame(model_fit.resid)
-        # if residuals.isnull().any().any():
-        #     raise ValueError("Model validation failed: residuals contain NaN values")
-        
-        
-        return model_fit, df.index
-
-    except Exception as e:
-        logger.error(f"Error in ARIMA model training: {str(e)}")
-        raise
-
-def predict_arima_model(model_fit: ARIMAResults, last_timestamp: pd.Timestamp, period: str, interval: str):
-    """
-    Make predictions using the trained ARIMA model.
-
-    :param model: Trained ARIMA model.
-    :param period: The period for which to make predictions.
-    :param interval: The interval for which to make predictions.
-    :return forecast: Forecasted values.
-    :return steps: Number of steps ahead to forecast.
-
-
-    """
-    steps = period_step_map[period][interval]
-    logger.info(f"Making predictions for {steps} steps ahead.")
-
-    try:
-        # Get raw forecast values
-        forecast_values = model_fit.forecast(steps=steps)
-        logger.info(f"Raw forecast values: {forecast_values}")
-        
-        if pd.isna(forecast_values).any():
-            logger.error("NaN values in raw forecast")
-            raise ValueError("ARIMA model produced NaN forecasts")
-
-        # Ensure timezone
-        if last_timestamp.tz is None:
-            last_timestamp = pd.Timestamp(last_timestamp, tz='UTC').tz_convert('America/New_York')
-        
-        # Generate forecast dates
-        if interval.endswith('m') or interval.endswith('h'):
-            future_dates = generate_forecast_times(last_timestamp, steps, interval)
+    def get_freq_unit(self, interval: str) -> str:
+        """Get pandas frequency string for market-aware intervals"""
+        us_calendar = USFederalHolidayCalendar()
+        trading_day = CustomBusinessDay(calendar=us_calendar)
+        if interval.endswith("m"):
+            minutes = int(interval[:-1])
+            return CustomBusinessDay(
+                calendar=us_calendar,
+                offset=pd.Timedelta(minutes=minutes),
+            )
+        elif interval.endswith("h"):
+            return BusinessHour(start="9:30", end="16:00")
+        elif interval == "1d":
+            return trading_day
+        elif interval == "1wk":
+            return "W-FRI"
         else:
-            # For daily/weekly/monthly intervals
-            freq = get_freq_unit(interval)
-            next_trading_time = get_next_market_time(last_timestamp)
-            future_dates = pd.date_range(
-                start=next_trading_time,
-                periods=steps,
-                freq=freq,
-                tz='America/New_York'
+            return "BM"
+
+    def get_next_market_timestamp(self, timestamp: pd.Timestamp) -> pd.Timestamp:
+        """Find next valid market time, handling overnight, weekend and holiday transitions"""
+        if timestamp.tz is None:
+            timestamp = pd.Timestamp(timestamp, tz="UTC").tz_convert("America/New_York")
+        elif str(timestamp.tz) != "America/New_York":
+            timestamp = timestamp.tz_convert("America/New_York")
+
+        next_time = timestamp
+
+        # If outside market hours, move to next market open
+        if (
+            (next_time.hour >= 16)
+            or (next_time.hour < 9)
+            or (next_time.hour == 9 and next_time.minute < 30)
+        ):
+            next_time = next_time.replace(hour=9, minute=30)
+            if next_time <= timestamp:
+                next_time = next_time + pd.Timedelta(days=1)
+
+        # Skip weekends
+        while next_time.weekday() in [5, 6]:  # 5 = Saturday, 6 = Sunday
+            next_time = next_time + pd.Timedelta(days=1)
+            next_time = next_time.replace(hour=9, minute=30)
+
+        # Skip holidays
+        holidays = self.calendar.holidays(
+            start=next_time, end=next_time + pd.Timedelta(days=10)
+        )
+        while next_time.date() in holidays:
+            next_time = next_time + pd.Timedelta(days=1)
+            next_time = next_time.replace(hour=9, minute=30)
+
+        return next_time
+
+    def generate_forecast_dates(
+        self, start: pd.Timestamp, interval: str, steps: int
+    ) -> pd.DatetimeIndex:
+        """Generate sequence of market-aware forecast timestamps"""
+        if start.tz is None:
+            start = pd.Timestamp(start, tz="UTC").tz_convert("America/New_York")
+
+        trading_times = []
+        current_time = start
+
+        if interval.endswith("m"):
+            minutes = int(interval[:-1])
+        elif interval.endswith("h"):
+            minutes = int(interval[:-1]) * 60
+        else:
+            # For daily/weekly/monthly intervals, use simple date range
+            freq = self.get_freq_unit(interval)
+            next_trading_time = self.get_next_market_timestamp(start)
+            return pd.date_range(
+                start=next_trading_time, periods=steps, freq=freq, tz="America/New_York"
             )
 
-        logger.info(f"Generated future dates: {future_dates}")
-        logger.info(f"length of future dates and forecast values: {len(future_dates)} and {len(forecast_values)}")
-        logger.info(f"forecast values: {forecast_values}")
-        # Create forecast series
-        forecast = pd.Series(
-            data=forecast_values[:len(future_dates)],
-            index=future_dates,
-            name="predicted_mean"
-        )
-        logger.info(f"Final forecast series: {forecast}")
-        
-        return forecast, steps
+        while len(trading_times) < steps:
+            #     intervals_left = self.intervals_until_market_close(current_time, minutes)
+            #     if intervals_left > 0:
+            #         next_time = current_time + pd.Timedelta(minutes=minutes)
+            #         # Only add if it would be a new unique timestamp
+            #         if not trading_times or next_time > trading_times[-1]:
+            #             trading_times.append(next_time)
+            #             current_time = next_time
+            #         else:
+            #             # Move to next market day if we would create a duplicate
+            #             current_time = self.get_next_market_timestamp(current_time)
+            #     else:
+            #         # Move to start of next market day
+            #         current_time = self.get_next_market_timestamp(current_time)
+            #         # Only add the timestamp if it would be unique
+            #         if not trading_times or current_time > trading_times[-1]:
+            #             trading_times.append(current_time)
+            if self.is_market_open(current_time):
+                trading_times.append(current_time)
+                current_time = current_time + pd.Timedelta(minutes=minutes)
+            else:
+                current_time = self.get_next_market_timestamp(current_time)
 
-    except Exception as e:
-        logger.error(f"Error making forecast: {str(e)}")
-        raise ValueError(f"Error making forecast: {str(e)}")
+        return pd.DatetimeIndex(trading_times, tz="America/New_York")
 
 
-def get_freq_unit(interval: str) -> str:
-    """Get pandas frequency string for market-aware intervals"""
-    us_calendar = USFederalHolidayCalendar()
-    trading_day = CustomBusinessDay(calendar=us_calendar)    
-    if interval.endswith("m"):
-        # For minute intervals, use business hours + minutes
-        minutes = int(interval[:-1])
-        return CustomBusinessDay(
-            calendar=us_calendar,
-            # start='9:30',
-            # end='16:00',
-            offset=pd.Timedelta(minutes=minutes)
-        )
-    elif interval.endswith("h"):
-        # For hourly intervals during market hours
-        return BusinessHour(start='9:30', end='16:00')
-    elif interval == "1d":
-        return trading_day  # Business days only
-    elif interval == "1wk":
-        return "W-FRI"  # Weekly data anchored to Fridays
-    else:  # 1mo
-        return "BM"  # Business month end
-    
-def get_next_market_time(timestamp: pd.Timestamp) -> pd.Timestamp:
-    """
-    Get next valid market time, handling overnight, weekend and holiday transitions.
-    
-    Args:
-        timestamp: Current timestamp to check
-    Returns:
-        Next valid market timestamp
-    """
-    if timestamp.tz is None:
-        timestamp = pd.Timestamp(timestamp, tz='UTC').tz_convert('America/New_York')
-    elif str(timestamp.tz) != 'America/New_York':
-        timestamp = timestamp.tz_convert('America/New_York')
+# Model Configuration System - separates parameter configuration
+class ModelConfig:
+    # Default ARIMA parameters by period and interval
+    PDQ_MAP = {
+        "1d": {
+            "1m": (1, 0, 1),
+            "5m": (1, 0, 1),
+            "15m": (1, 0, 1),
+            "30m": (2, 1, 0),
+            "1h": (1, 1, 1),
+        },
+        "5d": {"5m": (1, 1, 1), "15m": (1, 1, 2), "30m": (0, 1, 1), "1h": (1, 1, 0)},
+        "1mo": {"1h": (1, 1, 0), "1d": (1, 0, 0)},
+        "3mo": {"1d": (1, 1, 0), "1wk": (1, 0, 0)},
+        "6mo": {"1d": (0, 1, 1), "1wk": (1, 0, 0)},
+        "1y": {"1d": (2, 1, 2), "1wk": (1, 0, 0), "1mo": (1, 0, 0)},
+        "2y": {"1wk": (0, 1, 1), "1mo": (1, 0, 0)},
+        "5y": {"1wk": (0, 1, 1), "1mo": (0, 1, 1)},
+        "10y": {"1mo": (0, 1, 1)},
+        "ytd": {"1d": (0, 1, 1)},
+    }
 
-    next_time = timestamp
-    
-    # If outside market hours, move to next market open
-    if (next_time.hour >= 16) or \
-       (next_time.hour < 9) or \
-       (next_time.hour == 9 and next_time.minute < 30):
-        next_time = next_time.replace(hour=9, minute=30)
-        if next_time <= timestamp:  # If we're still behind or at current time
-            next_time = next_time + pd.Timedelta(days=1)
-    
-    # Skip weekends
-    while next_time.weekday() in [5, 6]:
-        next_time = next_time + pd.Timedelta(days=1)
-        next_time = next_time.replace(hour=9, minute=30)
-    
-    # Skip holidays
-    us_calendar = USFederalHolidayCalendar()
-    holidays = us_calendar.holidays(start=next_time, end=next_time + pd.Timedelta(days=10))
-    while next_time.date() in holidays:
-        next_time = next_time + pd.Timedelta(days=1)
-        next_time = next_time.replace(hour=9, minute=30)
-    
-    return next_time
+    # Number of steps to forecast for each period/interval combination
+    PERIOD_STEP_MAP = {
+        "1d": {"1m": 60, "5m": 30, "15m": 20, "30m": 16, "1h": 10},
+        "5d": {"5m": 30, "15m": 20, "30m": 16, "1h": 12},
+        "1mo": {"1h": 12, "1d": 10},
+        "3mo": {"1d": 15, "1wk": 4},
+        "6mo": {"1d": 20, "1wk": 6},
+        "1y": {"1d": 20, "1wk": 8, "1mo": 3},
+        "2y": {"1wk": 8, "1mo": 3},
+        "5y": {"1wk": 8, "1mo": 6},
+        "10y": {"1mo": 6},
+        "ytd": {"1d": 15},
+    }
 
-def generate_forecast_times(start_time: pd.Timestamp, steps: int, interval: str) -> pd.DatetimeIndex:
-    """
-    Generate continuous sequence of market-aware timestamps for forecasting.
-    
-    Args:
-        start_time: Last historical timestamp
-        steps: Number of prediction steps
-        interval: Time interval (e.g. '5m' or '1h')
-    Returns:
-        DatetimeIndex with forecast timestamps
-    """
-    if start_time.tz is None:
-        start_time = pd.Timestamp(start_time, tz='UTC').tz_convert('America/New_York')
-    
-    trading_times = []
-    current_time = start_time
-    minutes = int(interval[:-1]) * 60 if interval.endswith('h') else int(interval[:-1])
-    
-    while len(trading_times) < steps:
-        next_time = current_time + pd.Timedelta(minutes=minutes)
-        
-        # Check if still within market hours
-        if (next_time.hour < 16) and \
-           (next_time.hour > 9 or (next_time.hour == 9 and next_time.minute >= 30)):
-            trading_times.append(next_time)
-            current_time = next_time
+    @staticmethod
+    def get_default_parameters(period: str, interval: str) -> tuple:
+        """Get default ARIMA parameters for the period/interval"""
+        try:
+            return ModelConfig.PDQ_MAP[period][interval]
+        except KeyError:
+            logger.warning(
+                f"No default parameters for {period}/{interval}, using (1,0,1)"
+            )
+            return (1, 0, 1)
+
+    @staticmethod
+    def get_forecast_steps(period: str, interval: str) -> int:
+        """Get the number of steps to forecast for period/interval"""
+        try:
+            return ModelConfig.PERIOD_STEP_MAP[period][interval]
+        except KeyError:
+            logger.warning(f"No step config for {period}/{interval}, using 10")
+            return 10
+
+
+# Core forecasting system
+class TimeSeriesForecaster:
+    def __init__(self, market_calendar: MarketCalendar, config: ModelConfig):
+        """
+        Initialize the forecaster with market calendar and configuration
+
+        Args:
+            market_calendar: Calendar for handling market-specific time operations
+            config: Configuration for model parameters
+        """
+        self.market_calendar = market_calendar
+        self.config = config
+        self.model_fit = None
+        self.training_data = None
+        self.last_timestamp = None
+        self.period = None
+        self.interval = None
+
+    def train(self, data: pd.DataFrame, period: str, interval: str) -> bool:
+        """
+        Train the forecasting model on historical data
+
+        Args:
+            data: DataFrame with Close prices and datetime index
+            period: The time period for forecasting
+            interval: The time interval for data
+
+        Returns:
+            bool: True if training was successful
+        """
+        self.period = period
+        self.interval = interval
+        self.training_data = data
+
+        if len(data) < 10:
+            logger.error("Not enough data points for training")
+            return False
+
+        logger.info(f"Training model for {period}/{interval} with {len(data)} points")
+        logger.info(f"Data range: min={data['Close'].min()}, max={data['Close'].max()}")
+
+        # Check for data issues
+        if data["Close"].isnull().any() or data["Close"].std() == 0:
+            logger.error("Invalid data: contains null values or no price variation")
+            return False
+
+        # Store the last timestamp for forecasting
+        self.last_timestamp = data.index[-1]
+
+        # Get default parameters and try to fit model
+        best_order = self.config.get_default_parameters(period, interval)
+        logger.info(f"Using initial model parameters: {best_order}")
+
+        try:
+            # Try with default parameters first
+            model = ARIMA(data["Close"], order=best_order)
+            self.model_fit = model.fit()
+
+            # Test forecast to ensure it doesn't produce NaNs
+            steps = self.config.get_forecast_steps(period, interval)
+            test_forecast = self.model_fit.forecast(steps=steps)
+
+            if pd.isna(test_forecast).any():
+                raise ValueError("Initial model parameters produced NaN forecasts")
+
+            return True
+
+        except Exception as e:
+            logger.warning(
+                f"Error with default parameters: {str(e)}, trying grid search"
+            )
+
+            # Grid search for better parameters
+            best_aic = float("inf")
+            best_model = None
+
+            for p in range(0, 3):
+                for d in range(0, 2):
+                    for q in range(0, 3):
+                        try:
+                            order = (p, d, q)
+                            logger.debug(f"Testing ARIMA{order}")
+                            model = ARIMA(data["Close"], order=order)
+                            model_fit = model.fit()
+
+                            # Verify forecast doesn't produce NaNs
+                            test_forecast = model_fit.forecast(steps=1)
+                            if (
+                                not pd.isna(test_forecast).any()
+                                and model_fit.aic < best_aic
+                            ):
+                                best_aic = model_fit.aic
+                                best_model = model_fit
+                                logger.info(
+                                    f"Found better model with AIC {best_aic}, order={order}"
+                                )
+
+                        except Exception as err:
+                            logger.debug(f"Error with ARIMA{order}: {str(err)}")
+                            continue
+
+            if best_model is not None:
+                self.model_fit = best_model
+                return True
+            else:
+                logger.error("Could not find valid model parameters")
+                return False
+
+    def forecast(self, steps: int = None) -> "ForecastResult":
+        """
+        Generate forecast using the trained model
+
+        Args:
+            steps: Number of steps to forecast (defaults to config value)
+
+        Returns:
+            ForecastResult: Object with forecast series and metadata
+        """
+        if self.model_fit is None:
+            raise ValueError("Model has not been trained yet")
+
+        if steps is None:
+            steps = self.config.get_forecast_steps(self.period, self.interval)
+
+        logger.info(f"Forecasting {steps} steps ahead")
+
+        try:
+            # Generate the raw forecast values
+            forecast_values = self.model_fit.forecast(steps=steps)
+            logger.info(f"Raw forecast values: {forecast_values}")
+
+            # Convert forecast values to a simple numpy array
+            forecast_array = (
+                forecast_values.values
+                if hasattr(forecast_values, "values")
+                else np.array(forecast_values)
+            )
+
+            # Generate appropriate future dates
+            future_dates = self.market_calendar.generate_forecast_dates(
+                self.last_timestamp, self.interval, steps
+            )
+            logger.info(f"Generated future dates: {future_dates}")
+
+            # Ensure lengths match before creating Series
+            min_length = min(len(future_dates), len(forecast_array))
+            logger.info(
+                f"Length match: {len(future_dates) == len(forecast_array)}, Lengths: {len(future_dates)}, {len(forecast_array)}"
+            )
+
+            # Create forecast series directly from arrays
+            forecast_series = pd.Series(
+                data=forecast_array[:min_length], index=future_dates[:min_length]
+            )
+            logger.info(f"Final forecast series: {forecast_series}")
+
+            return ForecastResult(
+                historical_series=self.training_data["Close"],
+                forecast_series=forecast_series,
+            )
+
+        except Exception as e:
+            logger.error(f"Error generating forecast: {str(e)}")
+            raise
+
+
+class ForecastResult:
+    """Class for handling forecast results with consistent interface"""
+
+    def __init__(self, historical_series: pd.Series, forecast_series: pd.Series):
+        """
+        Initialize with historical and forecast data
+
+        Args:
+            historical_series: Series with historical prices
+            forecast_series: Series with forecasted prices
+        """
+        self.historical = historical_series
+        self.forecast = forecast_series
+        self.last_historical_point = historical_series.iloc[-1]
+        self.last_timestamp = historical_series.index[-1]
+
+    def to_connected_series(self) -> pd.Series:
+        """Return forecast with last historical point included for visual continuity"""
+        last_point = pd.Series(self.last_historical_point, index=[self.last_timestamp])
+        return pd.concat([last_point, self.forecast])
+
+    def to_dict(self, ticker: str = "forecast") -> dict:
+        """Convert to frontend-friendly format with specified ticker"""
+        connected_series = self.to_connected_series()
+        result = {
+            ticker: [
+                {"time": int(ts.timestamp()), "value": float(val)}
+                for ts, val in connected_series.items()
+            ]
+        }
+        return result
+
+    def __str__(self) -> str:
+        """String representation for logging"""
+        return f"ForecastResult: {len(self.forecast)} points, starting at {self.forecast.index[0]}"
+
+
+class ForecastModelFactory:
+    """Factory for creating different types of forecasting models"""
+
+    @staticmethod
+    def create_model(model_type: str = "arima", **kwargs):
+        """
+        Create a forecasting model of the specified type
+
+        Args:
+            model_type: Type of model to create ('arima', 'exponential_smoothing', etc.)
+            **kwargs: Additional arguments to pass to the model constructor
+
+        Returns:
+            Forecaster instance
+        """
+        market_calendar = kwargs.get("market_calendar", MarketCalendar())
+        config = kwargs.get("config", ModelConfig())
+
+        if model_type.lower() == "arima":
+            return TimeSeriesForecaster(market_calendar, config)
         else:
-            # Get next valid market time
-            next_market_time = get_next_market_time(next_time)
-            trading_times.append(next_market_time)
-            current_time = next_market_time
-    
-    return pd.DatetimeIndex(trading_times, tz='America/New_York')
+            raise ValueError(f"Unsupported model type: {model_type}")
+
+
+# # Example usage
+# if __name__ == "__main__":
+#     # Setup
+#     market_calendar = MarketCalendar()
+#     config = ModelConfig()
+
+#     # Create forecaster through factory
+#     forecaster = ForecastModelFactory.create_model("arima",
+#                                                   market_calendar=market_calendar,
+#                                                   config=config)
+
+#     # To train and forecast:
+#     # forecaster.train(data, "1y", "1d")
+#     # result = forecaster.forecast()
+#     # forecast_data = result.to_dict()

@@ -8,6 +8,7 @@ import AreaChart from "@/app/dashboard/components/visualizations/areachart";
 
 import TimePeriodSelector from "@/app/dashboard/components/visualizations/timeperiodselector";
 import ForecastChart from "@/app/dashboard/components/visualizations/forecastchart"; // Import the ForecastChart component
+import DashboardCards from "@/app/dashboard/components/visualizations/dashboardCards";
 
 
 import {
@@ -36,58 +37,7 @@ export default function Page() {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Current Price
-                  </CardTitle>
-                  <DollarSign className="size-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">$236.22</div>
-                  <p className="text-xs text-muted-foreground">
-                    -5.76% from last month
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Market Cap
-                  </CardTitle>
-                  <Users className="size-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">3.55T</div>
-                  <p className="text-xs text-muted-foreground">
-                    -0.67% from yesterday
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Volume</CardTitle>
-                  <CreditCard className="size-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">+93,080,144</div>
-                  <p className="text-xs text-muted-foreground">
-                    +2.4% from yesterday
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Title</CardTitle>
-                  <Activity className="size-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">Description</div>
-                  <p className="text-xs text-muted-foreground">Line</p>
-                </CardContent>
-              </Card>
-            </div>
+            <DashboardCards />
             <div className="flex justify-center">
               <Card className="col-span-2 lg:col-span-4 w-full">
                 <CardHeader>
