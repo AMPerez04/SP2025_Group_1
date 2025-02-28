@@ -25,8 +25,6 @@ export function SearchBar() {
 
   // autocomplete search results
   useEffect(() => {
-    if (searchQuery.length < 1) return;
-
     // debounce API requests
     const debounceTimer = setTimeout(() => {
       getAssets(searchQuery);
@@ -67,7 +65,15 @@ export function SearchBar() {
       </div>
 
       {/* search modal */}
-      <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
+      <CommandDialog
+        open={commandOpen}
+        onOpenChange={(open) => {
+          setCommandOpen(open);
+          if (!open) {
+            setSearchQuery("");
+          }
+        }}
+      >
         <CommandInput
           placeholder="Search for an asset..."
           value={searchQuery}

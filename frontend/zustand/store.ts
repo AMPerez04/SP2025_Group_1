@@ -201,14 +201,11 @@ export const useStore = create<Store>((set, get) => ({
   setAssets: (newAssets) => set({ assets: newAssets }),
   // gets all assets matching search query
   getAssets: async (searchQuery) => {
-    if (searchQuery.length < 1) return;
+    const query = searchQuery.length < 1 ? "A" : searchQuery;
     try {
-      const response = await fetch(
-        `${BACKEND_URL}/search?query=${searchQuery}`,
-        {
-          credentials: "include",
-        }
-      );
+      const response = await fetch(`${BACKEND_URL}/search?query=${query}`, {
+        credentials: "include",
+      });
       const data = await response.json();
       set({ assets: data });
     } catch (error) {
