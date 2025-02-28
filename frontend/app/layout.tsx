@@ -10,7 +10,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Market Dashboard", // TODO: Change to project name
+  title: "ProfitProphet",
   description:
     "Interactive dashboard to track real-time stock prices, trends, and market performance",
 };
