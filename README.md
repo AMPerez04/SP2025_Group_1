@@ -4,7 +4,7 @@
 
 - **Austin Perez** | a.m.perez@wustl.edu | AMPerez04
 - **AJ Hoyt** | a.j@wustl.edu | ajhoyt
-- **Daniel Ribeiro** | d.d.ribeiro@wustl.edu | dani-rib
+- **Daniel Ribeiro** | d.d.ribeiro@wustl.edu | dani-ribeiro
 
 ## TA
 
