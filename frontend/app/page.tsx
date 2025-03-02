@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect  } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/zustand/store";
@@ -93,7 +93,9 @@ export default function Page() {
           throw new Error(data.detail || "Failed to send reset email.");
         }
 
-        setMessage("If an account with that email exists, a reset email has been sent.");
+        setMessage(
+          "If an account with that email exists, a reset email has been sent."
+        );
       } catch (err: unknown) {
         if (err instanceof Error) {
           setErrorMessage(err.message);
@@ -123,7 +125,9 @@ export default function Page() {
         router.push("/dashboard");
       } catch (err: unknown) {
         if (err instanceof Error) {
-          setErrorMessage(err.message || "An unexpected error occurred. Please try again.");
+          setErrorMessage(
+            err.message || "An unexpected error occurred. Please try again."
+          );
           console.error("Auth error:", err);
         } else {
           setErrorMessage("An unexpected error occurred. Please try again.");
@@ -149,7 +153,9 @@ export default function Page() {
         router.push("/survey");
       } catch (err: unknown) {
         if (err instanceof Error) {
-          setErrorMessage(err.message || "An unexpected error occurred. Please try again.");
+          setErrorMessage(
+            err.message || "An unexpected error occurred. Please try again."
+          );
           console.error("Auth error:", err);
         } else {
           setErrorMessage("An unexpected error occurred. Please try again.");
@@ -163,43 +169,45 @@ export default function Page() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-r from-[#8e2de2] to-[#4a00e0]">
       <form
         onSubmit={handleSubmit}
-        className="flex flex-col gap-4 bg-white w-full max-w-lg py-12 px-8 rounded-[2rem]"
+        className="flex flex-col gap-4 bg-white w-full max-w-lg p-8 rounded-[2rem]"
         aria-labelledby="form-title"
       >
         {/* Logo & Heading */}
         <div className="mb-4 text-center">
-          <a href="#" title="Logo">
-            <Image
-              src="/assets/placeholder.png"
-              alt="Logo"
-              width={48}
-              height={48}
-              priority
-              className="mx-auto h-12"
-            />
-          </a>
+          <Image
+            src="/assets/logo.svg"
+            alt="Logo"
+            width={125}
+            height={125}
+            priority
+            className="mx-auto rounded-full border-4 border-[#605DFF]"
+          />
           <h1 id="form-title" className="text-2xl font-bold mt-4">
             {isForgot
               ? "Forgot Password"
               : mode === "login"
-                ? "Welcome back 👏"
-                : "Create an account"}
+              ? "Welcome back 👏"
+              : "Create an account"}
           </h1>
-          <p>
+          <p className="italic">
             {isForgot
               ? "Enter your email to receive a reset link."
               : mode === "login"
-                ? "Please enter your details!"
-                : "Please fill in your details to sign up!"}
+              ? "Please enter your details!"
+              : "Please fill in your details to sign up!"}
           </p>
         </div>
 
         {/* Display Error or Success Message */}
         {errorMessage && (
-          <div className="text-red-500 text-center font-semibold">{errorMessage}</div>
+          <div className="text-red-500 text-center font-semibold">
+            {errorMessage}
+          </div>
         )}
         {message && (
-          <div className="text-green-500 text-center font-semibold">{message}</div>
+          <div className="text-green-500 text-center font-semibold">
+            {message}
+          </div>
         )}
 
         {/* Render Form Fields */}
@@ -214,7 +222,7 @@ export default function Page() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="peer text-2xl text-[#1F2346] py-1.5 w-full pr-10 border-b-[3px] border-b-[#D1D1D1] bg-transparent transition-colors duration-200 focus:border-b-[#605DFF] outline-none"
+              className="peer text-md text-[#1F2346] py-1.5 w-full pr-10 border-b-[3px] border-b-[#D1D1D1] bg-transparent transition-colors duration-200 focus:border-b-[#605DFF] outline-none"
             />
             <label
               htmlFor="email"
@@ -264,7 +272,7 @@ export default function Page() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="peer text-2xl text-[#1F2346] py-1.5 w-full pr-10 border-b-[3px] border-b-[#D1D1D1] bg-transparent transition-colors duration-200 focus:border-b-[#605DFF] outline-none"
+                className="peer text-md text-[#1F2346] py-1.5 w-full pr-10 border-b-[3px] border-b-[#D1D1D1] bg-transparent transition-colors duration-200 focus:border-b-[#605DFF] outline-none"
               />
               <label
                 htmlFor="email"
@@ -315,7 +323,7 @@ export default function Page() {
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="peer text-2xl text-[#1F2346] py-1.5 w-full pr-10 border-b-[3px] border-b-[#D1D1D1] bg-transparent transition-colors duration-200 focus:border-b-[#605DFF] outline-none"
+                  className="peer text-md text-[#1F2346] py-1.5 w-full pr-10 border-b-[3px] border-b-[#D1D1D1] bg-transparent transition-colors duration-200 focus:border-b-[#605DFF] outline-none"
                 />
                 <label
                   htmlFor="username"
@@ -345,7 +353,7 @@ export default function Page() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="peer text-2xl text-[#1F2346] py-1.5 w-full pr-10 border-b-[3px] border-b-[#D1D1D1] bg-transparent transition-colors duration-200 focus:border-b-[#605DFF] outline-none"
+                className="peer text-md text-[#1F2346] py-1.5 w-full pr-10 border-b-[3px] border-b-[#D1D1D1] bg-transparent transition-colors duration-200 focus:border-b-[#605DFF] outline-none"
               />
               <label
                 htmlFor="password"
@@ -394,8 +402,8 @@ export default function Page() {
           {isForgot
             ? "Send Reset Email"
             : mode === "login"
-              ? "Login"
-              : "Sign Up"}
+            ? "Login"
+            : "Sign Up"}
         </button>
 
         {/* Toggle Mode / Forgot Password Links */}
@@ -414,7 +422,7 @@ export default function Page() {
               </button>
             ) : (
               <div className="flex flex-col gap-2 justify-center align-center w-full">
-                <div className="flex gap-1 justify-center">
+                <div className="flex gap-1 justify-center mt-2">
                   <span>
                     {mode === "login"
                       ? "Don't have an account?"
@@ -433,7 +441,7 @@ export default function Page() {
                   <button
                     type="button"
                     onClick={() => setIsForgot(true)}
-                    className="text-[#515151] font-semibold hover:underline"
+                    className="text-[#515151] font-semibold hover:underline w-fit mx-auto mt-1"
                   >
                     Forgot Password?
                   </button>

@@ -111,6 +111,12 @@ export const useStore = create<Store>((set, get) => ({
       const data = await response.json();
       const tickers = data.Tickers || [];
 
+      tickers.sort((stock1: WatchlistItem, stock2: WatchlistItem) => {
+        if (stock1.Ticker < stock2.Ticker) return -1;
+        if (stock1.Ticker > stock2.Ticker) return 1;
+        return 0;
+      });
+
       set({ watchlist: tickers });
 
       // if no asset currently selected --> select 1st asset in the watchlist
@@ -201,14 +207,11 @@ export const useStore = create<Store>((set, get) => ({
   setAssets: (newAssets) => set({ assets: newAssets }),
   // gets all assets matching search query
   getAssets: async (searchQuery) => {
-    if (searchQuery.length < 1) return;
+    const query = searchQuery.length < 1 ? "A" : searchQuery;
     try {
-      const response = await fetch(
-        `${BACKEND_URL}/search?query=${searchQuery}`,
-        {
-          credentials: "include",
-        }
-      );
+      const response = await fetch(`${BACKEND_URL}/search?query=${query}`, {
+        credentials: "include",
+      });
       const data = await response.json();
       set({ assets: data });
     } catch (error) {
