@@ -111,6 +111,12 @@ export const useStore = create<Store>((set, get) => ({
       const data = await response.json();
       const tickers = data.Tickers || [];
 
+      tickers.sort((stock1: WatchlistItem, stock2: WatchlistItem) => {
+        if (stock1.Ticker < stock2.Ticker) return -1;
+        if (stock1.Ticker > stock2.Ticker) return 1;
+        return 0;
+      });
+
       set({ watchlist: tickers });
 
       // if no asset currently selected --> select 1st asset in the watchlist
