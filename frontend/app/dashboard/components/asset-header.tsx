@@ -7,12 +7,15 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useStore } from "@/zustand/store";
+import { formatInTimeZone } from "date-fns-tz";
 
 const getMarketStatus = () => {
-  const now = new Date();
-  const day = now.getDay(); // (0 : Sunday), ..., (6 : Saturday)
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
+  const est = new Date(
+    formatInTimeZone(new Date(), "America/New_York", "yyyy-MM-dd HH:mm:ss")
+  );
+  const day = est.getUTCDay(); // (0 : Sunday), ..., (6 : Saturday)
+  const hours = est.getUTCHours();
+  const minutes = est.getUTCMinutes();
 
   // market is only open M-F from 9:30 AM - 4 PM EST
   return (
