@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createChart, LineData, UTCTimestamp, AreaSeries } from 'lightweight-charts';
 import { useStore } from '../../../../zustand/store';
 import { Interval, formatChartTime } from '../../../../lib/utils';
-import ProgressBar from '@/components/ui/progressbar.tsx';
+import ProgressBar from '@/components/ui/progressbar';
 const intradayIntervals: Interval[] = ["1m", "5m", "15m", "30m", "1h"] as const;
 
 const ForecastChart: React.FC = () => {
