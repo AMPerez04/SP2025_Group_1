@@ -66,7 +66,7 @@ export function getYtdIntervals(): Interval[] {
 }
 
 export const periodIntervalMap: Record<Period, readonly Interval[]> = {
-    "1d": ["1m", "5m", "15m", "30m", "1h"],
+    "1d": ["1m", "5m", "15m", "30m",],
     "5d": ["5m", "15m", "30m", "1h"],
     "1mo": ["1h", "1d"],
     "3mo": ["1d", "1wk"],

@@ -53,8 +53,20 @@ export default function Page() {
             </div>
           </TabsContent>
           <TabsContent value="analytics" className="space-y-4">
+          <DashboardCards />
+          <div className="flex justify-center">
+              <Card className="col-span-2 lg:col-span-4 w-full">
+                <CardHeader>
+                </CardHeader>
+                <CardContent className="pl-2">
             <TimePeriodSelector />
+            <ResponsiveContainer width="100%" height="100%">
+
             <ForecastChart /> {/* Add the ForecastChart component */}
+            </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

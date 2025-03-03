@@ -89,6 +89,10 @@ interface Store {
   // toast notification error message
   errorMessage: string;
   setError: (errorMessage: string) => void;
+
+  // market status
+  isMarketOpen:boolean;
+  fetchMarketStatus: () => Promise<void>;
 }
 
 export const useStore = create<Store>((set, get) => ({
@@ -355,6 +359,27 @@ export const useStore = create<Store>((set, get) => ({
   },
   errorMessage: "",
   setError: (errorMessage) => set({ errorMessage }),
+
+  isMarketOpen: false,
+  fetchMarketStatus: async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/is_market_open`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch market status");
+      }
+
+      const data = await response.json();
+      set({ isMarketOpen: data });
+    } catch (error) {
+      console.error("Failed to fetch market status:", error);
+      set({ isMarketOpen: false });
+    }
+  },    
 }));
 
 

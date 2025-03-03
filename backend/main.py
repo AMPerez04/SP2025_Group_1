@@ -14,7 +14,7 @@ from email.message import EmailMessage
 import secrets
 import smtplib
 import ssl
-from analytics.data_fetcher import fetch_stock_data
+from analytics.data_fetcher import fetch_stock_data#, get_market_status
 import logging
 from analytics.arima_model import ForecastModelFactory, MarketCalendar, ModelConfig
 import pandas as pd
@@ -479,6 +479,15 @@ class ARIMATrainResponse(BaseModel, arbitrary_types_allowed=True):
     model: any
     stock_data: dict
 
+@app.get("/is_market_open")
+def is_market_open():
+    import yfinance as yf
+    def get_market_status():
+        """
+        Checks if the market is currently open via yfinance
+        """
+        return yf.Market("US").status['status']=='open'
+    return get_market_status()
 
 @app.post("/predict_arima")
 def predict_arima(ticker: str, period: str, interval: str) -> dict:

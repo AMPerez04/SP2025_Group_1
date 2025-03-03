@@ -57,3 +57,9 @@ def fetch_stock_data(
 
     except Exception as e:
         raise ValueError(f"Error fetching data for ticker {ticker}: {e}")
+
+def get_market_status():
+    """
+    Checks if the market is currently open via yfinance
+    """
+    return yf.Market("US").status['status']=='open'

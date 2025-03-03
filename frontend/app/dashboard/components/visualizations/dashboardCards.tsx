@@ -44,7 +44,6 @@ const DashboardCards: React.FC = () => {
     const selectedPeriod = useStore(state => state.selectedPeriod);
     const selectedAsset = useStore(state => state.selectedAsset);
     const financialData = useStore(state => state.financialData);
-    console.log(financialData)
     // Get the current price (last price in the financial data)
     const getCurrentPrice = () => {
         if (!selectedAsset || !financialData[selectedAsset.ticker]) {

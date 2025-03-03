@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import Image from "next/image";
 import {
   Tooltip,
@@ -7,36 +7,21 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useStore } from "@/zustand/store";
-import { formatInTimeZone } from "date-fns-tz";
-
-const getMarketStatus = () => {
-  const est = new Date(
-    formatInTimeZone(new Date(), "America/New_York", "yyyy-MM-dd HH:mm:ss")
-  );
-  const day = est.getUTCDay(); // (0 : Sunday), ..., (6 : Saturday)
-  const hours = est.getUTCHours();
-  const minutes = est.getUTCMinutes();
-
-  // market is only open M-F from 9:30 AM - 4 PM EST
-  return (
-    day >= 1 &&
-    day <= 5 &&
-    (hours > 9 || (hours === 9 && minutes >= 30)) &&
-    hours < 16
-  );
-};
 
 export default function AssetHeader() {
-  const [isMarketOpen, setIsMarketOpen] = useState(getMarketStatus());
+  const isMarketOpen = useStore((state) => state.isMarketOpen);
+  const fetchMarketStatus = useStore((state) => state.fetchMarketStatus);
   const { selectedAsset } = useStore((state) => state);
-
   useEffect(() => {
+    fetchMarketStatus();
+
     const interval = setInterval(() => {
-      setIsMarketOpen(getMarketStatus());
+      fetchMarketStatus();
     }, 60 * 1000); // checks market open/close every minute
 
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchMarketStatus]);
+
   const marketStatus = isMarketOpen ? "Market is Open" : "Market is Closed";
 
   if (!selectedAsset) {

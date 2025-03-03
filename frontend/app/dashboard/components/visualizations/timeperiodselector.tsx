@@ -49,7 +49,7 @@ const TimePeriodSelector: React.FC = () => {
           ))}
         </div>
       </div>
-
+      <hr className="my-1 border-gray-300" />
       {/* Interval Selector */}
       <div>
         <div className="flex space-x-0.5">
