@@ -25,8 +25,6 @@ export function SearchBar() {
 
   // autocomplete search results
   useEffect(() => {
-    if (searchQuery.length < 1) return;
-
     // debounce API requests
     const debounceTimer = setTimeout(() => {
       getAssets(searchQuery);
@@ -67,7 +65,15 @@ export function SearchBar() {
       </div>
 
       {/* search modal */}
-      <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
+      <CommandDialog
+        open={commandOpen}
+        onOpenChange={(open) => {
+          setCommandOpen(open);
+          if (!open) {
+            setSearchQuery("");
+          }
+        }}
+      >
         <CommandInput
           placeholder="Search for an asset..."
           value={searchQuery}
@@ -79,7 +85,17 @@ export function SearchBar() {
           ) : (
             <CommandGroup heading="Securities">
               {assets.slice(0, 100).map((asset) => (
-                <CommandItem key={asset.ticker} className="p-2">
+                <CommandItem
+                  key={asset.ticker}
+                  className="p-2 mb-2"
+                  style={{
+                    background: watchlist.some(
+                      (item) => item.Ticker === asset.ticker
+                    )
+                      ? "repeating-linear-gradient(45deg, #f3f4f6, #f3f4f6 10px, #e5e7eb 10px, #e5e7eb 20px)"
+                      : "",
+                  }}
+                >
                   <div
                     className="grid grid-cols-6 gap-4 items-center"
                     onClick={() => {
