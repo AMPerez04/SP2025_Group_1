@@ -18,11 +18,11 @@ export default function AssetHeader() {
     const minutes = now.getMinutes();
 
     // update to next 30-min mark
-    const next30MinMark = minutes < 30 ? 30 : 60; // next 30-min mark (HH:30 or HH:00)
     const nextUpdateTime = new Date(now);
-    nextUpdateTime.setMinutes(next30MinMark, 0, 0);
-
-    if (next30MinMark === 60) {
+    if (minutes < 30) {
+      nextUpdateTime.setMinutes(31, 0, 0); // next update at hh:31:00
+    } else {
+      nextUpdateTime.setMinutes(1, 0, 0); // next update at hh+1:01:00
       nextUpdateTime.setHours(now.getHours() + 1);
     }
 
