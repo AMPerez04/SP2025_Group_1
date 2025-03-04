@@ -9,18 +9,45 @@ import {
 import { useStore } from "@/zustand/store";
 
 export default function AssetHeader() {
-  const isMarketOpen = useStore((state) => state.isMarketOpen);
-  const fetchMarketStatus = useStore((state) => state.fetchMarketStatus);
-  const { selectedAsset } = useStore((state) => state);
+  const { isMarketOpen, getMarketStatus, selectedAsset } = useStore(
+    (state) => state
+  );
+
+  const getNext30MinMark = (): Date => {
+    const now = new Date();
+    const minutes = now.getMinutes();
+
+    // update to next 30-min mark
+    const next30MinMark = minutes < 30 ? 30 : 60; // next 30-min mark (HH:30 or HH:00)
+    const nextUpdateTime = new Date(now);
+    nextUpdateTime.setMinutes(next30MinMark, 0, 0);
+
+    if (next30MinMark === 60) {
+      nextUpdateTime.setHours(now.getHours() + 1);
+    }
+
+    return nextUpdateTime;
+  };
+
   useEffect(() => {
-    fetchMarketStatus();
+    getMarketStatus();
 
-    const interval = setInterval(() => {
-      fetchMarketStatus();
-    }, 60 * 1000); // checks market open/close every minute
+    const nextUpdateTime = getNext30MinMark();
+    const timeUntilNextUpdate = nextUpdateTime.getTime() - new Date().getTime();
 
-    return () => clearInterval(interval);
-  }, [fetchMarketStatus]);
+    // wait until next 30-min mark --> then get market status every 30 min
+    const timeout = setTimeout(() => {
+      getMarketStatus();
+
+      const interval = setInterval(() => {
+        getMarketStatus();
+      }, 30 * 60 * 1000); // 30 minutes
+
+      return () => clearInterval(interval);
+    }, timeUntilNextUpdate);
+
+    return () => clearTimeout(timeout);
+  }, [getMarketStatus]);
 
   const marketStatus = isMarketOpen ? "Market is Open" : "Market is Closed";
 

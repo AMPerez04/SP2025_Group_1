@@ -5,16 +5,15 @@ import { ResponsiveContainer } from "recharts";
 import AreaChart from "@/app/dashboard/components/visualizations/areachart";
 
 import TimePeriodSelector from "@/app/dashboard/components/visualizations/timeperiodselector";
-import ForecastChart from "@/app/dashboard/components/visualizations/forecastchart"; // Import the ForecastChart component
+import ForecastChart from "@/app/dashboard/components/visualizations/forecastchart";
 import DashboardCards from "@/app/dashboard/components/visualizations/dashboardCards";
-
 
 import {
   Card,
   CardContent,
   // CardDescription,
   CardHeader,
-  // CardTitle,
+  CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AssetHeader from "./components/asset-header";
@@ -30,15 +29,14 @@ export default function Page() {
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="analytics">
-              Insights
-            </TabsTrigger>
+            <TabsTrigger value="analytics">Insights</TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="space-y-4">
             <DashboardCards />
             <div className="flex justify-center">
               <Card className="col-span-2 lg:col-span-4 w-full">
                 <CardHeader>
+                  <CardTitle>Price</CardTitle>
                 </CardHeader>
                 <CardContent className="pl-2">
                   <TimePeriodSelector />
@@ -53,17 +51,17 @@ export default function Page() {
             </div>
           </TabsContent>
           <TabsContent value="analytics" className="space-y-4">
-          <DashboardCards />
-          <div className="flex justify-center">
+            <DashboardCards />
+            <div className="flex justify-center">
               <Card className="col-span-2 lg:col-span-4 w-full">
                 <CardHeader>
+                  <CardTitle>Price Prediction</CardTitle>
                 </CardHeader>
                 <CardContent className="pl-2">
-            <TimePeriodSelector />
-            <ResponsiveContainer width="100%" height="100%">
-
-            <ForecastChart /> {/* Add the ForecastChart component */}
-            </ResponsiveContainer>
+                  <TimePeriodSelector />
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ForecastChart />
+                  </ResponsiveContainer>
                 </CardContent>
               </Card>
             </div>

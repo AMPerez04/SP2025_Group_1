@@ -14,7 +14,7 @@ from email.message import EmailMessage
 import secrets
 import smtplib
 import ssl
-from analytics.data_fetcher import fetch_stock_data#, get_market_status
+from analytics.data_fetcher import fetch_stock_data, get_market_status
 import logging
 from analytics.arima_model import ForecastModelFactory, MarketCalendar, ModelConfig
 import pandas as pd
@@ -445,6 +445,9 @@ async def submit_survey(request: SurveySubmission):
 
     return
 
+# ================================================================================================================================
+# === asset data =================================================================================================================
+# ================================================================================================================================
 
 @app.get("/data")
 def fetch_financial_data(ticker: str, period: str = "1y", interval: str = "1d"):
@@ -457,8 +460,6 @@ def fetch_financial_data(ticker: str, period: str = "1y", interval: str = "1d"):
 
     returns: dict
     """
-
-    
     try:
         stock_data = fetch_stock_data(
             ticker=ticker,
@@ -468,26 +469,21 @@ def fetch_financial_data(ticker: str, period: str = "1y", interval: str = "1d"):
         return stock_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
-
+    
+@app.get("/is_market_open")
+def is_market_open():
+    """
+    Checks if the market is currently open via yfinance
+    """
+    return get_market_status()
 
 # ================================================================================================================================
 # === /predict endpoints ========================================================================================================
 # ================================================================================================================================
 
-
 class ARIMATrainResponse(BaseModel, arbitrary_types_allowed=True):
     model: any
     stock_data: dict
-
-@app.get("/is_market_open")
-def is_market_open():
-    import yfinance as yf
-    def get_market_status():
-        """
-        Checks if the market is currently open via yfinance
-        """
-        return yf.Market("US").status['status']=='open'
-    return get_market_status()
 
 @app.post("/predict_arima")
 def predict_arima(ticker: str, period: str, interval: str) -> dict:
