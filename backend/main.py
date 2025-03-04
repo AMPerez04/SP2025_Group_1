@@ -482,7 +482,7 @@ def is_market_open():
 # ================================================================================================================================
 
 class ARIMATrainResponse(BaseModel, arbitrary_types_allowed=True):
-    model: any
+    model: object
     stock_data: dict
 
 @app.post("/predict_arima")
