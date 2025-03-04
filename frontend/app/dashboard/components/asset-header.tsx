@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import Image from "next/image";
 import {
   Tooltip,
@@ -7,36 +7,48 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useStore } from "@/zustand/store";
-import { formatInTimeZone } from "date-fns-tz";
-
-const getMarketStatus = () => {
-  const est = new Date(
-    formatInTimeZone(new Date(), "America/New_York", "yyyy-MM-dd HH:mm:ss")
-  );
-  const day = est.getUTCDay(); // (0 : Sunday), ..., (6 : Saturday)
-  const hours = est.getUTCHours();
-  const minutes = est.getUTCMinutes();
-
-  // market is only open M-F from 9:30 AM - 4 PM EST
-  return (
-    day >= 1 &&
-    day <= 5 &&
-    (hours > 9 || (hours === 9 && minutes >= 30)) &&
-    hours < 16
-  );
-};
 
 export default function AssetHeader() {
-  const [isMarketOpen, setIsMarketOpen] = useState(getMarketStatus());
-  const { selectedAsset } = useStore((state) => state);
+  const { isMarketOpen, getMarketStatus, selectedAsset } = useStore(
+    (state) => state
+  );
+
+  const getNext30MinMark = (): Date => {
+    const now = new Date();
+    const minutes = now.getMinutes();
+
+    // update to next 30-min mark
+    const nextUpdateTime = new Date(now);
+    if (minutes < 30) {
+      nextUpdateTime.setMinutes(31, 0, 0); // next update at hh:31:00
+    } else {
+      nextUpdateTime.setMinutes(1, 0, 0); // next update at hh+1:01:00
+      nextUpdateTime.setHours(now.getHours() + 1);
+    }
+
+    return nextUpdateTime;
+  };
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setIsMarketOpen(getMarketStatus());
-    }, 60 * 1000); // checks market open/close every minute
+    getMarketStatus();
 
-    return () => clearInterval(interval);
-  }, []);
+    const nextUpdateTime = getNext30MinMark();
+    const timeUntilNextUpdate = nextUpdateTime.getTime() - new Date().getTime();
+
+    // wait until next 30-min mark --> then get market status every 30 min
+    const timeout = setTimeout(() => {
+      getMarketStatus();
+
+      const interval = setInterval(() => {
+        getMarketStatus();
+      }, 30 * 60 * 1000); // 30 minutes
+
+      return () => clearInterval(interval);
+    }, timeUntilNextUpdate);
+
+    return () => clearTimeout(timeout);
+  }, [getMarketStatus]);
+
   const marketStatus = isMarketOpen ? "Market is Open" : "Market is Closed";
 
   if (!selectedAsset) {

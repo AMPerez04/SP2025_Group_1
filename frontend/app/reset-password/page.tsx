@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BACKEND_URL } from "@/zustand/store";
 
-export default function ResetPassword() {
+function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const email = searchParams.get("email");
@@ -36,7 +36,7 @@ export default function ResetPassword() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.detail || "Failed to reset password.");
+        throw new Error(data.detail || "ERROR: Failed to reset password.");
       }
 
       setMessage("Password reset successfully!");
@@ -46,7 +46,7 @@ export default function ResetPassword() {
       if (error instanceof Error) {
         setErrorMessage(error.message);
       } else {
-        setErrorMessage("An unknown error occurred.");
+        setErrorMessage("An unexpected error occurred.");
       }
     }
   };
@@ -157,5 +157,13 @@ export default function ResetPassword() {
         </button>
       </form>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }

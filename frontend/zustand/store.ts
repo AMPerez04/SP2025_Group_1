@@ -1,4 +1,11 @@
 import { create } from "zustand";
+import {
+  normalizeTime,
+  periodIntervalMap,
+  getYtdIntervals,
+  Period,
+  Interval,
+} from "../lib/utils";
 
 export const BACKEND_URL = "http://localhost:8000";
 
@@ -35,6 +42,13 @@ interface SelectedAsset {
   marketLogo: string;
 }
 
+export interface TimeSeriesPoint {
+  time: number;
+  value: number;
+}
+
+export type TimeSeriesData = Record<string, TimeSeriesPoint[]>;
+
 interface Store {
   // user info
   user: User;
@@ -61,6 +75,29 @@ interface Store {
 
   selectedAsset: SelectedAsset | null;
   setSelectedAsset: (asset: SelectedAsset) => void;
+  isMarketOpen: boolean;
+  getMarketStatus: () => Promise<void>;
+
+  // watchlist financial data
+  financialData: TimeSeriesData;
+  selectedPeriod: Period;
+  setSelectedPeriod: (period: Period) => void;
+  selectedInterval: Interval;
+  setSelectedInterval: (interval: Interval) => void;
+  fetchFinancialData: (
+    ticker: string,
+    period: Period,
+    interval: Interval
+  ) => Promise<void>;
+
+  // forecast data
+  forecastData: TimeSeriesData | null;
+  loading: boolean;
+  fetchForecast: (
+    ticker: string,
+    period: Period,
+    interval: Interval
+  ) => Promise<void>;
 
   // toast notification error message
   errorMessage: string;
@@ -161,8 +198,7 @@ export const useStore = create<Store>((set, get) => ({
         throw new Error("ERROR: Unable to add ticker to watchlist");
       }
     } catch (error) {
-      console.error("ERROR: Unable to add ticker to watchlist:", error);
-      get().setError(`Unable to add $${ticker} to your watchlist`);
+      console.error(`ERROR: Unable to add $${ticker} to watchlist:`, error);
     }
   },
   // removes asset from user's watchlist
@@ -198,8 +234,10 @@ export const useStore = create<Store>((set, get) => ({
         throw new Error("ERROR: Unable to remove ticker from watchlist");
       }
     } catch (error) {
-      console.error("ERROR: Unable to remove from watchlist:", error);
-      get().setError(`Unable to remove $${ticker} from your watchlist`);
+      console.error(
+        `ERROR: Unable to remove $${ticker} from watchlist:`,
+        error
+      );
     }
   },
 
@@ -216,12 +254,150 @@ export const useStore = create<Store>((set, get) => ({
       set({ assets: data });
     } catch (error) {
       console.error("ERROR: Unable to fetch assets:", error);
-      set({ assets: [] }); // if error --> display no search results
+      set({ assets: [] });
     }
   },
 
   selectedAsset: null,
   setSelectedAsset: (asset) => set({ selectedAsset: asset }),
+
+  isMarketOpen: false,
+  getMarketStatus: async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/is_market_open`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("ERROR: Failed to fetch market status");
+      }
+
+      const marketStatus = await response.json();
+      set({ isMarketOpen: marketStatus });
+    } catch (error) {
+      console.error("ERROR: Failed to fetch market status:", error);
+      set({ isMarketOpen: false });
+    }
+  },
+
+  financialData: {},
+  fetchFinancialData: async (
+    ticker,
+    period = "1y" as Period,
+    interval = "1d" as Interval
+  ) => {
+    const validIntervals =
+      period === "ytd" ? getYtdIntervals() : periodIntervalMap[period];
+    if (!validIntervals.includes(interval)) {
+      interval = validIntervals[0];
+      set({ selectedInterval: interval });
+    }
+
+    try {
+      set({ financialData: {} });
+
+      const response = await fetch(
+        `${BACKEND_URL}/data?ticker=${ticker}&period=${period}&interval=${interval}`
+      );
+      const rawData = await response.json();
+
+      if (!rawData || Object.keys(rawData).length === 0) {
+        throw new Error("ERROR: rawData is undefined, null, or empty");
+      }
+
+      const transformedData = Object.keys(rawData).reduce((acc, asset) => {
+        const assetData = rawData[asset];
+        if (!assetData || !assetData.Close) return acc;
+
+        acc[asset] = Object.keys(assetData.Close)
+          .filter((dateKey) => assetData.Close[dateKey] !== null)
+          .map((dateKey) => ({
+            time: normalizeTime(dateKey),
+            value: assetData.Close[dateKey],
+          }))
+          .sort((a, b) => a.time - b.time);
+
+        return acc;
+      }, {} as Record<string, { time: number; value: number }[]>);
+
+      if (Object.keys(transformedData).length === 0) {
+        throw new Error("ERROR: transformedData is empty");
+      }
+
+      set({ financialData: transformedData });
+    } catch (error) {
+      console.error("Error fetching watchlist financial data:", error);
+      set({ financialData: {} });
+      return;
+    }
+  },
+
+  selectedPeriod: "1y",
+  setSelectedPeriod: (period) => {
+    const currentInterval = get().selectedInterval;
+    const validIntervals =
+      period === "ytd" ? getYtdIntervals() : periodIntervalMap[period];
+    if (!validIntervals.includes(currentInterval)) {
+      set({
+        selectedPeriod: period,
+        selectedInterval: validIntervals[0],
+      });
+    } else {
+      set({ selectedPeriod: period });
+    }
+  },
+
+  selectedInterval: "1d",
+  setSelectedInterval: (interval) => set({ selectedInterval: interval }),
+
+  forecastData: {},
+  loading: false,
+  fetchForecast: async (ticker, period = "1y", interval = "1d") => {
+    if (!periodIntervalMap[period].includes(interval)) {
+      interval = periodIntervalMap[period][0];
+      set({ selectedInterval: interval });
+    }
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/predict_arima?ticker=${ticker}&period=${period}&interval=${interval}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`Error: ${response.statusText}`);
+      }
+
+      const rawData = await response.json();
+
+      if (!rawData || Object.keys(rawData).length === 0) {
+        throw new Error("Error: rawData is undefined, null, or empty");
+      }
+
+      const normalizedData = Object.keys(rawData).reduce((acc, asset) => {
+        acc[asset] = rawData[asset].map(
+          (point: { time: string; value: number }) => ({
+            time: normalizeTime(point.time),
+            value: point.value,
+          })
+        );
+        return acc;
+      }, {} as Record<string, { time: number; value: number }[]>);
+
+      // Set the forecastData in the same style it was served before
+      set({ forecastData: normalizedData });
+    } catch (error) {
+      console.error("Error fetching forecast data:", error);
+      set({ forecastData: null });
+    } finally {
+      set({ loading: false });
+    }
+  },
 
   errorMessage: "",
   setError: (errorMessage) => set({ errorMessage }),
