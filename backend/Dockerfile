@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM python:3.11-slim
 WORKDIR /app
 
 # Copy and install dependencies
@@ -10,5 +10,5 @@ COPY . .
 
 EXPOSE 8000
 
-# Run the FastAPI app using uvicorn (production-ready, no auto-reload)
+# Run the FastAPI app using uvicorn
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
