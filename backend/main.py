@@ -18,6 +18,8 @@ from analytics.data_fetcher import fetch_stock_data, get_market_status
 import logging
 from analytics.arima_model import ForecastModelFactory, MarketCalendar, ModelConfig
 import pandas as pd
+import yfinance as yf
+from datetime import datetime, timezone
 
 
 logging.basicConfig(
@@ -469,6 +471,41 @@ def fetch_financial_data(ticker: str, period: str = "1y", interval: str = "1d"):
         return stock_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
+    
+@app.get("/quote")
+def get_quote(ticker: str):
+    """
+    returns quote data for asset
+    """
+    try:
+        stock = yf.Ticker(ticker)
+        info = stock.info
+
+        def format_date(epoch):
+            return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime("%b %d, %Y") if isinstance(epoch, (int, float)) else "--"
+
+        quote = {
+            "previousClose": f"{info.get('previousClose', '--'):.2f}",
+            "open": f"{info.get('open', '--'):.2f}",
+            "bid": f"{info.get('bid', '--'):.2f} x {info.get('bidSize', '--')}",
+            "ask": f"{info.get('ask', '--'):.2f} x {info.get('askSize', '--')}",
+            "daysRange": f"{info.get('dayLow', '--'):.2f} - {info.get('dayHigh', '--'):.2f}",
+            "week52Range": f"{info.get('fiftyTwoWeekLow', '--'):.2f} - {info.get('fiftyTwoWeekHigh', '--'):.2f}",
+            "volume": f"{info.get('volume', '--'):,}",
+            "averageVolume": f"{info.get('averageVolume', '--'):,}",
+            "marketCap": f"{info.get('marketCap', 0) / 1e12:.3f}T" if info.get("marketCap") else "--",
+            "beta": f"{info.get('beta', '--'):.2f}",
+            "peRatio": f"{info.get('trailingPE', '--'):.2f}",
+            "eps": f"{info.get('trailingEps', '--'):.2f}",
+            "earningsDate": f"{format_date(info.get('earningsTimestampStart'))} - {format_date(info.get('earningsTimestampEnd'))}",
+            "dividendYield": f"{info.get('dividendRate', '--'):.2f} ({info.get('dividendYield', '--') * 100:.2f}%)" if info.get("dividendRate") and info.get("dividendYield") else "--",
+            "exDividendDate": format_date(info.get('exDividendDate')),
+            "targetEst": f"{info.get('targetMeanPrice', '--'):.2f}"
+        }
+
+        return quote
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     
 @app.get("/is_market_open")
 def is_market_open():
