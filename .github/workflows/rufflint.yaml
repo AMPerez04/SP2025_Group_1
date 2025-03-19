@@ -31,4 +31,4 @@ jobs:
       - name: Run Ruff
         run: |
           cd backend
-          venv/bin/ruff check .
+          venv/bin/ruff check --no-cache .
