@@ -1,13 +1,6 @@
-name: Lint Backend Python with Ruff
+name: Lint Backend - Ruff (Python)
 
-on:
-  push:
-    branches:
-      - main
-      - 'feature/**'
-  pull_request:
-    branches:
-      - main
+on: [push, pull_request]
 
 jobs:
   lint:
@@ -20,7 +13,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
@@ -28,7 +21,12 @@ jobs:
           python -m venv venv
           venv/bin/pip install -r requirements.txt
 
-      - name: Run Ruff
+      - name: Lint
         run: |
           cd backend
           venv/bin/ruff check .
+
+      - name: Format
+        run: |
+          cd backend
+          venv/bin/ruff format .

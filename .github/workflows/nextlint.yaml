@@ -1,16 +1,9 @@
-name: Lint JavaScript/TypeScript Code with Next Lint
+name: Lint & Build Frontend - Next.js
 
-on:
-  push:
-    branches:
-      - main
-      - 'feature/**'
-  pull_request:
-    branches:
-      - main
+on: [push, pull_request]
 
 jobs:
-  lint:
+  lint_and_build:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,14 +13,19 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Install dependencies
         run: |
           cd frontend
           npm install
 
-      - name: Run lint
+      - name: Lint
         run: |
           cd frontend
           npm run lint
+
+      - name: Build
+        run: |
+          cd frontend
+          npm run build
