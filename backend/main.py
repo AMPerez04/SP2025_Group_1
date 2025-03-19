@@ -472,35 +472,66 @@ def fetch_financial_data(ticker: str, period: str = "1y", interval: str = "1d"):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
     
-@app.get("/quote")
-def get_quote(ticker: str):
+class QuoteRequest(BaseModel):
+    ticker: str
+
+@app.post("/quote")
+def get_quote(request: QuoteRequest):
     """
     returns quote data for asset
     """
     try:
-        stock = yf.Ticker(ticker)
+        stock = yf.Ticker(request.ticker)
         info = stock.info
 
         def format_date(epoch):
             return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime("%b %d, %Y") if isinstance(epoch, (int, float)) else "--"
+        def format_large_nums(val):
+            if not isinstance(val, (int, float)):
+                return "--"
+            
+            abs_val = abs(val)
+            if abs_val >= 1e12:
+                return f"{val / 1e12:,.3f}T"
+            elif abs_val >= 1e9:
+                return f"{val / 1e9:,.3f}B"
+            return f"{val:,.0f}"
+
+        def safe_format(val, default="--"):
+            try:
+                return f"{float(val):,.2f}"
+            except (ValueError, TypeError):
+                return default
 
         quote = {
-            "previousClose": f"{info.get('previousClose', '--'):.2f}",
-            "open": f"{info.get('open', '--'):.2f}",
-            "bid": f"{info.get('bid', '--'):.2f} x {info.get('bidSize', '--')}",
-            "ask": f"{info.get('ask', '--'):.2f} x {info.get('askSize', '--')}",
-            "daysRange": f"{info.get('dayLow', '--'):.2f} - {info.get('dayHigh', '--'):.2f}",
-            "week52Range": f"{info.get('fiftyTwoWeekLow', '--'):.2f} - {info.get('fiftyTwoWeekHigh', '--'):.2f}",
-            "volume": f"{info.get('volume', '--'):,}",
-            "averageVolume": f"{info.get('averageVolume', '--'):,}",
-            "marketCap": f"{info.get('marketCap', 0) / 1e12:.3f}T" if info.get("marketCap") else "--",
-            "beta": f"{info.get('beta', '--'):.2f}",
-            "peRatio": f"{info.get('trailingPE', '--'):.2f}",
-            "eps": f"{info.get('trailingEps', '--'):.2f}",
+            "previousClose": safe_format(info.get("previousClose")),
+            "open": safe_format(info.get("open")),
+            "bid": (
+                f"{safe_format(info.get('bid'))} x {100 * info.get('bidSize', '--')}"
+                if info.get("bid") and info.get("bidSize")
+                else "--"
+            ),
+            "ask": (
+                f"{safe_format(info.get('ask'))} x {100 * info.get('askSize', '--')}"
+                if info.get("ask") and info.get("askSize")
+                else "--"
+            ),
+            "daysRange": f"{safe_format(info.get('dayLow'))} - {safe_format(info.get('dayHigh'))}",
+            "week52Range": f"{safe_format(info.get('fiftyTwoWeekLow'))} - {safe_format(info.get('fiftyTwoWeekHigh'))}",
+            "volume": format_large_nums(info.get("volume")),
+            "averageVolume": format_large_nums(info.get("averageVolume")),
+            "marketCap": format_large_nums(info.get("marketCap")),
+            "beta": safe_format(info.get("beta")),
+            "peRatio": safe_format(info.get("trailingPE")),
+            "eps": safe_format(info.get("trailingEps")),
             "earningsDate": f"{format_date(info.get('earningsTimestampStart'))} - {format_date(info.get('earningsTimestampEnd'))}",
-            "dividendYield": f"{info.get('dividendRate', '--'):.2f} ({info.get('dividendYield', '--') * 100:.2f}%)" if info.get("dividendRate") and info.get("dividendYield") else "--",
+            "dividendYield": (
+                f"{safe_format(info.get('dividendRate'))} ({safe_format(info.get('dividendYield'))}%)"
+                if info.get("dividendRate") and info.get("dividendYield")
+                else "--"
+            ),
             "exDividendDate": format_date(info.get('exDividendDate')),
-            "targetEst": f"{info.get('targetMeanPrice', '--'):.2f}"
+            "targetEst": safe_format(info.get("targetMeanPrice")),
         }
 
         return quote

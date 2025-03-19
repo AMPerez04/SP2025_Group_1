@@ -1,70 +1,68 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useStore } from "@/zustand/store";
 
 export function AssetInfo() {
-  //   const { selectedAsset } = useStore((state) => state);
-  const selectedAsset = {
-    name: "AAPL",
-    previousClose: "212.69",
-    open: "214.22",
-    bid: "214.81 x 300",
-    ask: "214.93 x 300",
-    daysRange: "213.91 - 218.76",
-    week52Range: "164.08 - 260.10",
-    volume: "23,614,933",
-    averageVolume: "53,123,005",
-    marketCap: "3.228T",
-    beta: "1.18",
-    peRatio: "34.10",
-    eps: "6.30",
-    earningsDate: "Apr 30, 2025 - May 5, 2025",
-    dividendYield: "1.00 (0.47%)",
-    exDividendDate: "Feb 10, 2025",
-    targetEst: "252.59",
-  };
+  const { selectedAsset, quoteData, getQuote } = useStore((state) => state);
 
-  if (!selectedAsset) return null;
+  useEffect(() => {
+    if (selectedAsset) {
+      getQuote(selectedAsset.ticker);
+    }
+  }, [selectedAsset, getQuote]);
+
+  if (!selectedAsset || !quoteData) return <></>;
 
   const assetInfo = [
-    { label: "Previous Close", value: selectedAsset.previousClose },
-    { label: "Open", value: selectedAsset.open },
-    { label: "Bid", value: selectedAsset.bid },
-    { label: "Ask", value: selectedAsset.ask },
-    { label: "Day's Range", value: selectedAsset.daysRange },
-    { label: "52 Week Range", value: selectedAsset.week52Range },
-    { label: "Volume", value: selectedAsset.volume },
-    { label: "Avg. Volume", value: selectedAsset.averageVolume },
-    { label: "Market Cap (intraday)", value: selectedAsset.marketCap },
-    { label: "Beta (5Y Monthly)", value: selectedAsset.beta },
-    { label: "PE Ratio (TTM)", value: selectedAsset.peRatio },
-    { label: "EPS (TTM)", value: selectedAsset.eps },
-    { label: "Earnings Date", value: selectedAsset.earningsDate },
-    { label: "Forward Dividend & Yield", value: selectedAsset.dividendYield },
-    { label: "Ex-Dividend Date", value: selectedAsset.exDividendDate },
-    { label: "1Y Target Est", value: selectedAsset.targetEst },
+    { label: "Previous Close", value: quoteData.previousClose },
+    { label: "Open", value: quoteData.open },
+    { label: "Bid", value: quoteData.bid },
+    { label: "Ask", value: quoteData.ask },
+    { label: "Day's Range", value: quoteData.daysRange },
+    { label: "52 Week Range", value: quoteData.week52Range },
+    { label: "Volume", value: quoteData.volume },
+    { label: "Avg. Volume", value: quoteData.averageVolume },
+    { label: "Market Cap (Intraday)", value: quoteData.marketCap },
+    { label: "Beta (5Y Monthly)", value: quoteData.beta },
+    { label: "PE Ratio (TTM)", value: quoteData.peRatio },
+    { label: "EPS (TTM)", value: quoteData.eps },
+    { label: "Earnings Date", value: quoteData.earningsDate },
+    { label: "Forward Dividend & Yield", value: quoteData.dividendYield },
+    { label: "Ex-Dividend Date", value: quoteData.exDividendDate },
+    { label: "1Y Target Est", value: quoteData.targetEst },
   ];
 
-  const columns = 3; // default num columns
-  const rows = Math.ceil(assetInfo.length / columns);
-  const gridItems = Array.from({ length: rows }, (_, rowIndex) =>
-    assetInfo.filter((_, index) => index % rows === rowIndex)
-  ).flat();
+  const ROW_LENGTH = 3;
+  const columnCount = Math.ceil(assetInfo.length / ROW_LENGTH);
+  const columns = Array.from({ length: columnCount }, (_, columnIndex) => {
+    return assetInfo.filter((_, index) => index % columnCount === columnIndex);
+  });
 
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>{selectedAsset.name} Overview</CardTitle>
+        <CardTitle>{selectedAsset.ticker} Quote</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-3 text-sm">
-          {gridItems.map(({ label, value }) => (
-            <div
-              key={label}
-              className="flex justify-between border-b border-dashed pb-1"
-            >
-              <span className="text-muted-foreground">{label}</span>
-              <span className="font-semibold">{value}</span>
+          {Array.from({ length: ROW_LENGTH }, (_, rowIndex) => (
+            <div key={rowIndex} className="flex flex-col gap-y-3">
+              {columns.map((column, colIndex) => {
+                const item = column[rowIndex];
+                return (
+                  item && (
+                    <div
+                      key={`${colIndex}-${rowIndex}`}
+                      className="flex justify-between border-b border-dashed pb-1 mb-1"
+                    >
+                      <span className="text-muted-foreground">
+                        {item.label}
+                      </span>
+                      <span className="font-semibold">{item.value}</span>
+                    </div>
+                  )
+                );
+              })}
             </div>
           ))}
         </div>
