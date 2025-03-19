@@ -1,0 +1,40 @@
+version: "3"
+services:
+  frontend:
+    build:
+      context: ./frontend
+    volumes:
+      # Mount your local frontend directory to the container's working directory
+      - ./frontend:/app
+      # Optionally prevent node_modules from being overwritten by the host
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+      - mongo
+
+  backend:
+    build:
+      context: ./backend
+    volumes:
+      # Mount your local backend directory to the container's working directory
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      # Use the service name for MongoDB (if using Compose networking)
+      - MONGO_URL=mongodb://mongo:27017
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongo:6.0
+    container_name: mongo
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:

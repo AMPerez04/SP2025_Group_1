@@ -1,0 +1,21 @@
+# Ignore node modules (local, not from the Docker build)
+node_modules
+
+# Log files
+npm-debug.log
+
+# Git files
+.git
+.gitignore
+
+# Docker-specific files (if present in the folder)
+Dockerfile
+docker-compose.yml
+
+# Next.js build artifacts and environment files
+.next
+out
+.env.local
+.env.development
+.env.test
+.env.production
