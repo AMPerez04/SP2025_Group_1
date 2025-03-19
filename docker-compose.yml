@@ -1,7 +1,7 @@
-version: '3'
+version: "3"
 services:
   frontend:
-    build: 
+    build:
       context: ./frontend
     volumes:
       # Mount your local frontend directory to the container's working directory
@@ -12,6 +12,7 @@ services:
       - "3000:3000"
     depends_on:
       - backend
+      - mongo
 
   backend:
     build:
@@ -29,8 +30,9 @@ services:
 
   mongo:
     image: mongo:6.0
+    container_name: mongo
     ports:
-      - "27017:27017"
+      - "27018:27017"
     volumes:
       - mongo-data:/data/db
 
