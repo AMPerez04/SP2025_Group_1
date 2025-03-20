@@ -3,6 +3,7 @@ node_modules
 
 # Log files
 npm-debug.log
+*.log
 
 # Git files
 .git

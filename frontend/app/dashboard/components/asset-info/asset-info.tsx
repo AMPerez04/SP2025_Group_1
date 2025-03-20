@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronsUpDown } from "lucide-react";
 import { useStore } from "@/zustand/store";
+import Link from "next/link";
 
 export function AssetInfo() {
   const {
@@ -109,15 +110,11 @@ export function AssetInfo() {
                 )}
               </div>
             </Collapsible>
-            <Button className="mt-4 bg-button-foreground hover:bg-button-background text-accent text-xs px-3 py-2 rounded-lg">
-              <a
-                href={descriptionData.website}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
+            <Link href={descriptionData.website} passHref>
+              <Button className="mt-4 bg-button-foreground hover:bg-button-background text-accent text-xs px-3 py-2 rounded-lg">
                 Learn More
-              </a>
-            </Button>
+              </Button>
+            </Link>
           </div>
           <div className="w-6/12 grid grid-cols-2 gap-x-6 gap-y-10 text-sm border-l-2 border-gray-300 pl-4 self-start pb-5">
             <div>

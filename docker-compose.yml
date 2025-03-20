@@ -3,6 +3,7 @@ services:
   frontend:
     build:
       context: ./frontend
+    container_name: frontend
     volumes:
       # Mount your local frontend directory to the container's working directory
       - ./frontend:/app
@@ -17,6 +18,7 @@ services:
   backend:
     build:
       context: ./backend
+    container_name: backend
     volumes:
       # Mount your local backend directory to the container's working directory
       - ./backend:/app
