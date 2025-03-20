@@ -538,6 +538,46 @@ def get_quote(request: QuoteRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
+@app.post("/about")
+def get_about(request: QuoteRequest):
+    """
+    returns description for asset
+    """
+    try:
+        stock = yf.Ticker(request.ticker)
+        info = stock.info
+
+        def format_date(epoch):
+            return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime("%B %d") if isinstance(epoch, (int, float)) else "--"
+        def format_large_nums(val):
+            if not isinstance(val, (int, float)):
+                return "--"
+            
+            abs_val = abs(val)
+            if abs_val >= 1e12:
+                return f"{val / 1e12:,.1f}T"
+            elif abs_val >= 1e9:
+                return f"{val / 1e9:,.1f}B"
+            elif abs_val >= 1e6:
+                return f"{val / 1e6:,.1f}M"
+            return f"{val:,.0f}"
+
+        description = {
+            "name": info.get("displayName", info.get("longName", "--")),
+            "description": info.get("longBusinessSummary", "--"),
+            "website": info.get("website", "--"),
+            "sector": info.get("sector", "--"),
+            "industry": info.get("industry", "--"),
+            "employees": format_large_nums(info.get("fullTimeEmployees")),
+            "nextFiscalYearEnd": format_date(info.get("nextFiscalYearEnd", "--")),
+            "location": f'{info.get("city")}, {info.get("state")}' if (info.get("city") and info.get("state")) else "--",
+            "leadership": info.get("companyOfficers")[0]["name"] if info.get("companyOfficers") else "--",
+        }
+
+        return description
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
 @app.get("/is_market_open")
 def is_market_open():
     """

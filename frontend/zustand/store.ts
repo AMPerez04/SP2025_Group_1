@@ -61,6 +61,18 @@ interface QuoteData {
   targetEst: string;
 }
 
+interface DescriptionData {
+  name: string;
+  description: string;
+  website: string;
+  employees: string;
+  nextFiscalYearEnd: string;
+  sector: string;
+  industry: string;
+  location: string;
+  leadership: string;
+}
+
 export interface TimeSeriesPoint {
   time: number;
   value: number;
@@ -120,6 +132,9 @@ interface Store {
 
   quoteData: QuoteData | null;
   getQuote: (ticker: string) => Promise<void>;
+
+  descriptionData: DescriptionData | null;
+  getDescription: (ticker: string) => Promise<void>;
 
   // toast notification error message
   errorMessage: string;
@@ -439,6 +454,27 @@ export const useStore = create<Store>((set, get) => ({
     } catch (error) {
       console.error("ERROR: Unable to fetch quote data:", error);
       set({ quoteData: null });
+    }
+  },
+
+  descriptionData: null,
+  getDescription: async (ticker) => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/about`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker }),
+      });
+
+      if (!response.ok) {
+        throw new Error("ERROR: Unable to fetch description data");
+      }
+
+      const data = await response.json();
+      set({ descriptionData: data });
+    } catch (error) {
+      console.error("ERROR: Unable to fetch description data:", error);
+      set({ descriptionData: null });
     }
   },
 
