@@ -1,5 +1,5 @@
 # Stage 1: Build the Next.js app
-FROM node:18-alpine AS builder
+FROM node:latest AS builder
 WORKDIR /app
 
 # Install dependencies for caching
@@ -11,7 +11,7 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Run the Next.js app
-FROM node:18-alpine AS runner
+FROM node:latest AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -24,4 +24,4 @@ COPY --from=builder /app/node_modules ./node_modules
 
 EXPOSE 3000
 
-CMD npm run build && npm run start
+CMD ["npm", "run", "dev"]

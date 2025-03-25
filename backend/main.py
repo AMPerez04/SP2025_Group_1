@@ -18,6 +18,8 @@ from analytics.data_fetcher import fetch_stock_data, get_market_status
 import logging
 from analytics.arima_model import ForecastModelFactory, MarketCalendar, ModelConfig
 import pandas as pd
+import yfinance as yf
+from datetime import datetime, timezone
 
 
 logging.basicConfig(
@@ -469,6 +471,112 @@ def fetch_financial_data(ticker: str, period: str = "1y", interval: str = "1d"):
         return stock_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
+    
+class QuoteRequest(BaseModel):
+    ticker: str
+
+@app.post("/quote")
+def get_quote(request: QuoteRequest):
+    """
+    returns quote data for asset
+    """
+    try:
+        stock = yf.Ticker(request.ticker)
+        info = stock.info
+
+        def format_date(epoch):
+            return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime("%b %d, %Y") if isinstance(epoch, (int, float)) else "--"
+        def format_large_nums(val):
+            if not isinstance(val, (int, float)):
+                return "--"
+            
+            abs_val = abs(val)
+            if abs_val >= 1e12:
+                return f"{val / 1e12:,.3f}T"
+            elif abs_val >= 1e9:
+                return f"{val / 1e9:,.3f}B"
+            return f"{val:,.0f}"
+
+        def safe_format(val, default="--"):
+            try:
+                return f"{float(val):,.2f}"
+            except (ValueError, TypeError):
+                return default
+
+        quote = {
+            "previousClose": safe_format(info.get("previousClose")),
+            "open": safe_format(info.get("open")),
+            "bid": (
+                f"{safe_format(info.get('bid'))} x {100 * info.get('bidSize', '--')}"
+                if info.get("bid") and info.get("bidSize")
+                else "--"
+            ),
+            "ask": (
+                f"{safe_format(info.get('ask'))} x {100 * info.get('askSize', '--')}"
+                if info.get("ask") and info.get("askSize")
+                else "--"
+            ),
+            "daysRange": f"{safe_format(info.get('dayLow'))} - {safe_format(info.get('dayHigh'))}",
+            "week52Range": f"{safe_format(info.get('fiftyTwoWeekLow'))} - {safe_format(info.get('fiftyTwoWeekHigh'))}",
+            "volume": format_large_nums(info.get("volume")),
+            "averageVolume": format_large_nums(info.get("averageVolume")),
+            "marketCap": format_large_nums(info.get("marketCap")),
+            "beta": safe_format(info.get("beta")),
+            "peRatio": safe_format(info.get("trailingPE")),
+            "eps": safe_format(info.get("trailingEps")),
+            "earningsDate": f"{format_date(info.get('earningsTimestampStart'))} - {format_date(info.get('earningsTimestampEnd'))}",
+            "dividendYield": (
+                f"{safe_format(info.get('dividendRate'))} ({safe_format(info.get('dividendYield'))}%)"
+                if info.get("dividendRate") and info.get("dividendYield")
+                else "--"
+            ),
+            "exDividendDate": format_date(info.get('exDividendDate')),
+            "targetEst": safe_format(info.get("targetMeanPrice")),
+        }
+
+        return quote
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.post("/about")
+def get_about(request: QuoteRequest):
+    """
+    returns description for asset
+    """
+    try:
+        stock = yf.Ticker(request.ticker)
+        info = stock.info
+
+        def format_date(epoch):
+            return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime("%B %d") if isinstance(epoch, (int, float)) else "--"
+        def format_large_nums(val):
+            if not isinstance(val, (int, float)):
+                return "--"
+            
+            abs_val = abs(val)
+            if abs_val >= 1e12:
+                return f"{val / 1e12:,.1f}T"
+            elif abs_val >= 1e9:
+                return f"{val / 1e9:,.1f}B"
+            elif abs_val >= 1e6:
+                return f"{val / 1e6:,.1f}M"
+            return f"{val:,.0f}"
+
+        description = {
+            "name": info.get("displayName", info.get("longName", "--")),
+            "description": info.get("longBusinessSummary", "--"),
+            "website": info.get("website", "--"),
+            "sector": info.get("sector", "--"),
+            "industry": info.get("industry", "--"),
+            "employees": format_large_nums(info.get("fullTimeEmployees")),
+            "nextFiscalYearEnd": format_date(info.get("nextFiscalYearEnd", "--")),
+            "location": f'{info.get("city")}, {info.get("state")}' if (info.get("city") and info.get("state")) else "--",
+            "leadership": info.get("companyOfficers")[0]["name"] if info.get("companyOfficers") else "--",
+        }
+
+        return description
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     
 @app.get("/is_market_open")
 def is_market_open():

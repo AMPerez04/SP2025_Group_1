@@ -3,10 +3,10 @@
 import React from "react";
 import { ResponsiveContainer } from "recharts";
 import AreaChart from "@/app/dashboard/components/visualizations/areachart";
-
 import TimePeriodSelector from "@/app/dashboard/components/visualizations/timeperiodselector";
 import ForecastChart from "@/app/dashboard/components/visualizations/forecastchart";
 import DashboardCards from "@/app/dashboard/components/visualizations/dashboardCards";
+import AssetInfo from "./components/asset-info/asset-info";
 
 import {
   Card,
@@ -49,6 +49,7 @@ export default function Page() {
                 </CardContent>
               </Card>
             </div>
+            <AssetInfo />
           </TabsContent>
           <TabsContent value="analytics" className="space-y-4">
             <DashboardCards />

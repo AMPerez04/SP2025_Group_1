@@ -9,7 +9,6 @@ import {
 
 export const BACKEND_URL = "http://localhost:8000";
 
-
 interface User {
   ID: string;
   email: string;
@@ -41,6 +40,37 @@ interface SelectedAsset {
   ticker: string;
   marketName: string;
   marketLogo: string;
+}
+
+interface QuoteData {
+  previousClose: string;
+  open: string;
+  bid: string;
+  ask: string;
+  daysRange: string;
+  week52Range: string;
+  volume: string;
+  averageVolume: string;
+  marketCap: string;
+  beta: string;
+  peRatio: string;
+  eps: string;
+  earningsDate: string;
+  dividendYield: string;
+  exDividendDate: string;
+  targetEst: string;
+}
+
+interface DescriptionData {
+  name: string;
+  description: string;
+  website: string;
+  employees: string;
+  nextFiscalYearEnd: string;
+  sector: string;
+  industry: string;
+  location: string;
+  leadership: string;
 }
 
 export interface TimeSeriesPoint {
@@ -99,6 +129,12 @@ interface Store {
     period: Period,
     interval: Interval
   ) => Promise<void>;
+
+  quoteData: QuoteData | null;
+  getQuote: (ticker: string) => Promise<void>;
+
+  descriptionData: DescriptionData | null;
+  getDescription: (ticker: string) => Promise<void>;
 
   // toast notification error message
   errorMessage: string;
@@ -397,6 +433,48 @@ export const useStore = create<Store>((set, get) => ({
       set({ forecastData: null });
     } finally {
       set({ loading: false });
+    }
+  },
+
+  quoteData: null,
+  getQuote: async (ticker) => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/quote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker }),
+      });
+
+      if (!response.ok) {
+        throw new Error("ERROR: Unable to fetch quote data");
+      }
+
+      const data = await response.json();
+      set({ quoteData: data });
+    } catch (error) {
+      console.error("ERROR: Unable to fetch quote data:", error);
+      set({ quoteData: null });
+    }
+  },
+
+  descriptionData: null,
+  getDescription: async (ticker) => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/about`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker }),
+      });
+
+      if (!response.ok) {
+        throw new Error("ERROR: Unable to fetch description data");
+      }
+
+      const data = await response.json();
+      set({ descriptionData: data });
+    } catch (error) {
+      console.error("ERROR: Unable to fetch description data:", error);
+      set({ descriptionData: null });
     }
   },
 
