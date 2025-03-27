@@ -104,13 +104,13 @@ export function AssetInfo() {
                   <CollapsibleTrigger asChild>
                     <Button variant="ghost" size="sm" className="p-2">
                       <ChevronsUpDown className="h-4 w-4" />
-                      <span>{descriptionOpen ? "Show less" : "Show more"}</span>
+                      <span>{descriptionOpen ? "Show Less" : "Show More"}</span>
                     </Button>
                   </CollapsibleTrigger>
                 )}
               </div>
             </Collapsible>
-            <Link href={descriptionData.website} passHref>
+            <Link href={descriptionData.website} passHref target="_blank">
               <Button className="mt-4 bg-button-foreground hover:bg-button-background text-accent text-xs px-3 py-2 rounded-lg">
                 Learn More
               </Button>
