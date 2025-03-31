@@ -73,10 +73,9 @@ interface DescriptionData {
   leadership: string;
 }
 
-export interface TimeSeriesPoint {
-  time: number;
-  value: number;
-}
+export type TimeSeriesPoint =
+  | { time: number; value: number }  // For area charts
+  | { time: number; open: number; high: number; low: number; value: number }; // For candlestick charts
 
 export type TimeSeriesData = Record<string, TimeSeriesPoint[]>;
 
@@ -139,6 +138,10 @@ interface Store {
   // toast notification error message
   errorMessage: string;
   setError: (errorMessage: string) => void;
+
+  chartType: "area" | "candle";
+  setChartType: (chartType: "area" | "candle") => void;
+
 }
 
 export const useStore = create<Store>((set, get) => ({
@@ -347,17 +350,21 @@ export const useStore = create<Store>((set, get) => ({
       const transformedData = Object.keys(rawData).reduce((acc, asset) => {
         const assetData = rawData[asset];
         if (!assetData || !assetData.Close) return acc;
-
+        
         acc[asset] = Object.keys(assetData.Close)
           .filter((dateKey) => assetData.Close[dateKey] !== null)
           .map((dateKey) => ({
             time: normalizeTime(dateKey),
+            open: assetData.Open[dateKey],
+            high: assetData.High[dateKey],
+            low: assetData.Low[dateKey],
             value: assetData.Close[dateKey],
           }))
           .sort((a, b) => a.time - b.time);
-
+      
         return acc;
-      }, {} as Record<string, { time: number; value: number }[]>);
+      }, {} as Record<string, { time: number; open: number; high: number; low: number; value: number }[]>);
+      
 
       if (Object.keys(transformedData).length === 0) {
         throw new Error("ERROR: transformedData is empty");
@@ -480,4 +487,7 @@ export const useStore = create<Store>((set, get) => ({
 
   errorMessage: "",
   setError: (errorMessage) => set({ errorMessage }),
+
+  chartType: "area", // default to "area" chart
+  setChartType: (chartType: "area" | "candle") => set({ chartType }),
 }));
