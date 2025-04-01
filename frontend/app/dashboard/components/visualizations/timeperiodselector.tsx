@@ -2,7 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useStore } from '../../../../zustand/store';
 import { cn, Period, Interval, periodIntervalMap } from "@/lib/utils";
 
-const TimePeriodSelector: React.FC = () => {
+interface TimePeriodSelectorProps {
+  hasCandleOption: boolean;
+}
+
+const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({ hasCandleOption }) => {
   const selectedPeriod = useStore((state) => state.selectedPeriod as Period);
   const setSelectedPeriod = useStore((state) => state.setSelectedPeriod);
 
@@ -80,6 +84,7 @@ const TimePeriodSelector: React.FC = () => {
       </div>
 
       {/* Right side: Chart Type Selector */}
+      {hasCandleOption && (
       <div className="flex space-x-0.5">
         <button
           onClick={() => setChartType("area")}
@@ -104,6 +109,7 @@ const TimePeriodSelector: React.FC = () => {
           Candle
         </button>
       </div>
+      )}
     </div>
   );
 };

@@ -43,7 +43,7 @@ export default function Page() {
                   <CardTitle>Price</CardTitle>
                 </CardHeader>
                 <CardContent className="pl-2">
-                  <TimePeriodSelector />
+                  <TimePeriodSelector hasCandleOption={true}/>
                   <ResponsiveContainer width="100%" height="100%">
                     {chartType === "area" ? <AreaChart /> : <CandleChart />}
                   </ResponsiveContainer>
@@ -60,7 +60,7 @@ export default function Page() {
                   <CardTitle>Price Prediction</CardTitle>
                 </CardHeader>
                 <CardContent className="pl-2">
-                  <TimePeriodSelector />
+                  <TimePeriodSelector hasCandleOption={false}/>
                   <ResponsiveContainer width="100%" height="100%">
                     <ForecastChart />
                   </ResponsiveContainer>
