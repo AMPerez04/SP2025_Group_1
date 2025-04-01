@@ -9,7 +9,6 @@ import {
 
 export const BACKEND_URL = "http://localhost:8000";
 
-
 interface User {
   ID: string;
   email: string;
@@ -43,10 +42,40 @@ interface SelectedAsset {
   marketLogo: string;
 }
 
-export interface TimeSeriesPoint {
-  time: number;
-  value: number;
+interface QuoteData {
+  previousClose: string;
+  open: string;
+  bid: string;
+  ask: string;
+  daysRange: string;
+  week52Range: string;
+  volume: string;
+  averageVolume: string;
+  marketCap: string;
+  beta: string;
+  peRatio: string;
+  eps: string;
+  earningsDate: string;
+  dividendYield: string;
+  exDividendDate: string;
+  targetEst: string;
 }
+
+interface DescriptionData {
+  name: string;
+  description: string;
+  website: string;
+  employees: string;
+  nextFiscalYearEnd: string;
+  sector: string;
+  industry: string;
+  location: string;
+  leadership: string;
+}
+
+export type TimeSeriesPoint =
+  | { time: number; value: number }  // For area charts
+  | { time: number; open: number; high: number; low: number; value: number }; // For candlestick charts
 
 export type TimeSeriesData = Record<string, TimeSeriesPoint[]>;
 interface OptionsChain {
@@ -190,9 +219,27 @@ interface Store {
     interval: Interval
   ) => Promise<void>;
 
+  quoteData: QuoteData | null;
+  getQuote: (ticker: string) => Promise<void>;
+
+  descriptionData: DescriptionData | null;
+  getDescription: (ticker: string) => Promise<void>;
+
   // toast notification error message
   errorMessage: string;
   setError: (errorMessage: string) => void;
+
+  chartType: "area" | "candle";
+  setChartType: (chartType: "area" | "candle") => void;
+
+  technicalIndicators: {
+    sma: boolean;
+    ema: boolean;
+    rsi: boolean;
+    bb: boolean;
+  };
+  toggleIndicator: (indicator: "sma" | "ema" | "rsi" | "bb") => void;
+  resetIndicators: () => void;
 
   // Options data
   optionsData: OptionsData | null;
@@ -334,12 +381,12 @@ export const useStore = create<Store>((set, get) => ({
           set({
             selectedAsset: get()?.watchlist[0]
               ? {
-                  assetLogo: get()?.watchlist[0].Icon,
-                  companyName: get()?.watchlist[0].FullName,
-                  ticker: get()?.watchlist[0].Ticker,
-                  marketName: get()?.watchlist[0].MarketName,
-                  marketLogo: get()?.watchlist[0].MarketLogo,
-                }
+                assetLogo: get()?.watchlist[0].Icon,
+                companyName: get()?.watchlist[0].FullName,
+                ticker: get()?.watchlist[0].Ticker,
+                marketName: get()?.watchlist[0].MarketName,
+                marketLogo: get()?.watchlist[0].MarketLogo,
+              }
               : null,
           });
         }
@@ -428,12 +475,16 @@ export const useStore = create<Store>((set, get) => ({
           .filter((dateKey) => assetData.Close[dateKey] !== null)
           .map((dateKey) => ({
             time: normalizeTime(dateKey),
+            open: assetData.Open[dateKey],
+            high: assetData.High[dateKey],
+            low: assetData.Low[dateKey],
             value: assetData.Close[dateKey],
           }))
           .sort((a, b) => a.time - b.time);
 
         return acc;
-      }, {} as Record<string, { time: number; value: number }[]>);
+      }, {} as Record<string, { time: number; open: number; high: number; low: number; value: number }[]>);
+
 
       if (Object.keys(transformedData).length === 0) {
         throw new Error("ERROR: transformedData is empty");
@@ -509,6 +560,48 @@ export const useStore = create<Store>((set, get) => ({
       set({ forecastData: null });
     } finally {
       set({ loading: false });
+    }
+  },
+
+  quoteData: null,
+  getQuote: async (ticker) => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/quote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker }),
+      });
+
+      if (!response.ok) {
+        throw new Error("ERROR: Unable to fetch quote data");
+      }
+
+      const data = await response.json();
+      set({ quoteData: data });
+    } catch (error) {
+      console.error("ERROR: Unable to fetch quote data:", error);
+      set({ quoteData: null });
+    }
+  },
+
+  descriptionData: null,
+  getDescription: async (ticker) => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/about`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker }),
+      });
+
+      if (!response.ok) {
+        throw new Error("ERROR: Unable to fetch description data");
+      }
+
+      const data = await response.json();
+      set({ descriptionData: data });
+    } catch (error) {
+      console.error("ERROR: Unable to fetch description data:", error);
+      set({ descriptionData: null });
     }
   },
 
@@ -602,6 +695,32 @@ export const useStore = create<Store>((set, get) => ({
   
   errorMessage: "",
   setError: (errorMessage) => set({ errorMessage }),
-}));
 
+  chartType: "area", // default to "area" chart
+  setChartType: (chartType: "area" | "candle") => set({ chartType }),
+  
+  // Technical Indicators State for Overlays
+  technicalIndicators: {
+    sma: false,
+    ema: false,
+    rsi: false,
+    bb: false,
+  },
+  toggleIndicator: (indicator: "sma" | "ema" | "rsi" | "bb") =>
+    set((state) => ({
+      technicalIndicators: {
+        ...state.technicalIndicators,
+        [indicator]: !state.technicalIndicators[indicator],
+      },
+    })),
+  resetIndicators: () =>
+    set({
+      technicalIndicators: {
+        sma: false,
+        ema: false,
+        rsi: false,
+        bb: false,
+      },
+    }),
+}));
 export type { OptionsData, OptionsChain, VolatilitySurface, BinomialTree };

@@ -1,0 +1,5 @@
+SHELL=/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin
+
+# run data collection pipeline every 24 hours @ 2 AM
+0 2 * * * root python /app/assets/asset_collection.py >> /var/log/asset_cron.log 2>&1

@@ -34,6 +34,7 @@ pip-delete-this-directory.txt
 docker-compose.override.yml
 *.dockerignore
 *.env.docker
+backend.log
 
 # Build artifacts
 dist/
@@ -67,3 +68,5 @@ htmlcov/
 
 #stock_dashboard.assets.json
 stock_dashboard.assets.json
+
+/assets/

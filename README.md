@@ -16,9 +16,20 @@ Our project is a stock option dashboard that provides authentication, paper trad
 
 ## How to Run
 
-&lt;Instructions for how to run your project. Include the URI to your project at the top if applicable.&gt;
+_Instructions for how to run your project. Include the URI to your project at the top if applicable._
 
-### 1. Run the frontend
+### Running the Project with Docker
+
+#### Ensure you are in the root directory of the project
+
+```bash
+docker compose up --build
+http://localhost:3000
+```
+
+### Running the project WITHOUT Docker:
+
+#### 1. Run the frontend:
 
 ```bash
 cd frontend
