@@ -142,6 +142,14 @@ interface Store {
   chartType: "area" | "candle";
   setChartType: (chartType: "area" | "candle") => void;
 
+  technicalIndicators: {
+    sma: boolean;
+    ema: boolean;
+    rsi: boolean;
+    bb: boolean;
+  };
+  toggleIndicator: (indicator: "sma" | "ema" | "rsi" | "bb") => void;
+  resetIndicators: () => void;
 }
 
 export const useStore = create<Store>((set, get) => ({
@@ -261,12 +269,12 @@ export const useStore = create<Store>((set, get) => ({
           set({
             selectedAsset: get()?.watchlist[0]
               ? {
-                  assetLogo: get()?.watchlist[0].Icon,
-                  companyName: get()?.watchlist[0].FullName,
-                  ticker: get()?.watchlist[0].Ticker,
-                  marketName: get()?.watchlist[0].MarketName,
-                  marketLogo: get()?.watchlist[0].MarketLogo,
-                }
+                assetLogo: get()?.watchlist[0].Icon,
+                companyName: get()?.watchlist[0].FullName,
+                ticker: get()?.watchlist[0].Ticker,
+                marketName: get()?.watchlist[0].MarketName,
+                marketLogo: get()?.watchlist[0].MarketLogo,
+              }
               : null,
           });
         }
@@ -350,7 +358,7 @@ export const useStore = create<Store>((set, get) => ({
       const transformedData = Object.keys(rawData).reduce((acc, asset) => {
         const assetData = rawData[asset];
         if (!assetData || !assetData.Close) return acc;
-        
+
         acc[asset] = Object.keys(assetData.Close)
           .filter((dateKey) => assetData.Close[dateKey] !== null)
           .map((dateKey) => ({
@@ -361,10 +369,10 @@ export const useStore = create<Store>((set, get) => ({
             value: assetData.Close[dateKey],
           }))
           .sort((a, b) => a.time - b.time);
-      
+
         return acc;
       }, {} as Record<string, { time: number; open: number; high: number; low: number; value: number }[]>);
-      
+
 
       if (Object.keys(transformedData).length === 0) {
         throw new Error("ERROR: transformedData is empty");
@@ -490,4 +498,28 @@ export const useStore = create<Store>((set, get) => ({
 
   chartType: "area", // default to "area" chart
   setChartType: (chartType: "area" | "candle") => set({ chartType }),
+  
+  // Technical Indicators State for Overlays
+  technicalIndicators: {
+    sma: false,
+    ema: false,
+    rsi: false,
+    bb: false,
+  },
+  toggleIndicator: (indicator: "sma" | "ema" | "rsi" | "bb") =>
+    set((state) => ({
+      technicalIndicators: {
+        ...state.technicalIndicators,
+        [indicator]: !state.technicalIndicators[indicator],
+      },
+    })),
+  resetIndicators: () =>
+    set({
+      technicalIndicators: {
+        sma: false,
+        ema: false,
+        rsi: false,
+        bb: false,
+      },
+    }),
 }));

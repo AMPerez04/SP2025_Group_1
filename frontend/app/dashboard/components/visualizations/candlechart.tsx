@@ -1,30 +1,33 @@
+// CandleChart.tsx
 import React, { useEffect, useRef } from 'react';
 import {
   createChart,
   CandlestickData,
   CandlestickSeries,
   UTCTimestamp,
-  MouseEventParams,
-  Time,
+  LineSeries,
+  LineStyle,
 } from 'lightweight-charts';
-import { useStore } from '../../../../zustand/store';
-
-// Define a type for the financial data point
-interface FinancialPoint {
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  value: number; // This represents the close value
-}
+import { useStore } from '@/zustand/store';
+import {
+  calculateSMA,
+  calculateEMA,
+  calculateRSI,
+  calculateBollingerBands,
+  FinancialPoint,
+} from '../../../utils/indicators';
 
 const CandleChart: React.FC = () => {
-  const chartContainerRef = useRef<HTMLDivElement>(null);
+  // Refs for chart containers
+  const mainChartContainerRef = useRef<HTMLDivElement>(null);
+  const rsiChartContainerRef = useRef<HTMLDivElement>(null);
+
   const financialData = useStore((state) => state.financialData);
   const selectedAsset = useStore((state) => state.selectedAsset);
   const fetchFinancialData = useStore((state) => state.fetchFinancialData);
   const selectedPeriod = useStore((state) => state.selectedPeriod);
   const selectedInterval = useStore((state) => state.selectedInterval);
+  const technicalIndicators = useStore((state) => state.technicalIndicators);
 
   // Fetch financial data when selected asset, period, or interval changes
   useEffect(() => {
@@ -33,13 +36,16 @@ const CandleChart: React.FC = () => {
     }
   }, [selectedAsset, fetchFinancialData, selectedPeriod, selectedInterval]);
 
+  // Main effect for rendering charts
   useEffect(() => {
-    if (!chartContainerRef.current) return;
+    if (!mainChartContainerRef.current) return;
 
-    // Create the chart using IChartApi
-    const chart = createChart(chartContainerRef.current, {
-      width: chartContainerRef.current.clientWidth,
-      height: 400,
+    // ---------------------------
+    // 1. CREATE MAIN PRICE CHART
+    // ---------------------------
+    const mainChart = createChart(mainChartContainerRef.current, {
+      width: mainChartContainerRef.current.clientWidth,
+      height: 300,
       layout: {
         background: { color: '#ffffff' },
         textColor: '#333',
@@ -48,66 +54,193 @@ const CandleChart: React.FC = () => {
         vertLines: { color: '#e1e1e1', visible: false },
         horzLines: { color: '#e1e1e1', visible: false },
       },
-      handleScroll: false,
-      handleScale: false,
+      handleScroll: true,
+      handleScale: true,
       timeScale: {
         timeVisible: true,
         secondsVisible: false,
         rightOffset: 5,
-        barSpacing: 0,
-        fixLeftEdge: true,
-        fixRightEdge: true,
+        barSpacing: 6,
       },
     });
 
-    // Create a candlestick series with custom options:
-    const candleSeries = chart.addSeries(CandlestickSeries, {
+    const candleSeries = mainChart.addSeries(CandlestickSeries, {
       upColor: '#2d9c41',
       downColor: '#e22e29',
       borderVisible: false,
       wickUpColor: '#2d9c41',
       wickDownColor: '#e22e29',
     });
-      
-    // Map the financial data into the expected format for candlesticks.
-    // Casting here asserts that the data contains open, high, and low.
+
     if (selectedAsset && financialData[selectedAsset.ticker]) {
-      const data: CandlestickData[] = (financialData[selectedAsset.ticker] as FinancialPoint[]).map(
-        (point: FinancialPoint) => ({
-          time: point.time as UTCTimestamp,
-          open: point.open,
-          high: point.high,
-          low: point.low,
-          close: point.value,
-        })
-      );
-      candleSeries.setData(data);
-      chart.timeScale().fitContent();
+      const dataPoints = financialData[selectedAsset.ticker] as FinancialPoint[];
+      const candlestickData: CandlestickData[] = dataPoints.map((point) => ({
+        time: point.time as UTCTimestamp,
+        open: point.open,
+        high: point.high,
+        low: point.low,
+        close: point.value,
+      }));
+      candleSeries.setData(candlestickData);
+      mainChart.timeScale().fitContent();
+
+      // ---------------------------
+      // OVERLAY ANY PRICE INDICATORS
+      // ---------------------------
+      if (technicalIndicators.sma && dataPoints.length >= 20) {
+        const smaData = calculateSMA(dataPoints, 20);
+        const smaSeries = mainChart.addSeries(LineSeries, {
+          color: '#FF0000',
+          lineWidth: 2,
+          lineStyle: LineStyle.Solid,
+        });
+        smaSeries.setData(
+          smaData.map((d) => ({ time: d.time as UTCTimestamp, value: d.value }))
+        );
+      }
+
+      if (technicalIndicators.ema && dataPoints.length >= 20) {
+        const emaData = calculateEMA(dataPoints, 20);
+        const emaSeries = mainChart.addSeries(LineSeries, {
+          color: '#0000FF',
+          lineWidth: 2,
+          lineStyle: LineStyle.Solid,
+        });
+        emaSeries.setData(
+          emaData.map((d) => ({ time: d.time as UTCTimestamp, value: d.value }))
+        );
+      }
+
+      if (technicalIndicators.bb && dataPoints.length >= 20) {
+        const bbData = calculateBollingerBands(dataPoints, 20, 2);
+        // Upper Band
+        const bbUpperSeries = mainChart.addSeries(LineSeries, {
+          color: '#FFA500',
+          lineWidth: 1,
+          lineStyle: LineStyle.Solid,
+        });
+        bbUpperSeries.setData(
+          bbData.map((d) => ({ time: d.time as UTCTimestamp, value: d.upper }))
+        );
+        // Middle Band
+        const bbMiddleSeries = mainChart.addSeries(LineSeries, {
+          color: '#808080',
+          lineWidth: 1,
+          lineStyle: LineStyle.Solid,
+        });
+        bbMiddleSeries.setData(
+          bbData.map((d) => ({ time: d.time as UTCTimestamp, value: d.middle }))
+        );
+        // Lower Band
+        const bbLowerSeries = mainChart.addSeries(LineSeries, {
+          color: '#FFA500',
+          lineWidth: 1,
+          lineStyle: LineStyle.Solid,
+        });
+        bbLowerSeries.setData(
+          bbData.map((d) => ({ time: d.time as UTCTimestamp, value: d.lower }))
+        );
+      }
     }
 
-    // Handle chart resizing using the IChartApi.resize() method
+    // ---------------------------
+    // 2. CREATE RSI CHART (ONLY IF ENABLED)
+    // ---------------------------
+    let rsiChart: ReturnType<typeof createChart> | undefined;
+    if (
+      technicalIndicators.rsi &&
+      rsiChartContainerRef.current &&
+      selectedAsset &&
+      financialData[selectedAsset.ticker]
+    ) {
+      const dataPoints = financialData[selectedAsset.ticker] as FinancialPoint[];
+      if (dataPoints.length >= 15) {
+        rsiChart = createChart(rsiChartContainerRef.current, {
+          width: rsiChartContainerRef.current.clientWidth,
+          height: 200,
+          layout: {
+            background: { color: '#ffffff' },
+            textColor: '#333',
+          },
+          grid: {
+            vertLines: { color: '#e1e1e1', visible: false },
+            horzLines: { color: '#e1e1e1', visible: false },
+          },
+          handleScroll: true,
+          handleScale: true,
+          timeScale: {
+            timeVisible: true,
+            secondsVisible: false,
+            rightOffset: 5,
+            barSpacing: 6,
+          },
+        });
+
+        const rsiData = calculateRSI(dataPoints, 14);
+        const rsiSeries = rsiChart.addSeries(LineSeries, {
+          color: '#00FF00',
+          lineWidth: 2,
+          lineStyle: LineStyle.Solid,
+        });
+        rsiSeries.setData(
+          rsiData.map((d) => ({
+            time: d.time as UTCTimestamp,
+            value: d.value,
+          }))
+        );
+
+        // Add horizontal lines at 30 and 70
+        rsiSeries.createPriceLine({
+          price: 30,
+          color: '#999',
+          lineStyle: LineStyle.Dotted,
+          lineWidth: 1,
+          axisLabelVisible: true,
+          title: '30',
+        });
+
+        rsiSeries.createPriceLine({
+          price: 70,
+          color: '#999',
+          lineStyle: LineStyle.Dotted,
+          lineWidth: 1,
+          axisLabelVisible: true,
+          title: '70',
+        });
+      }
+    }
+
+    // ---------------------------
+    // CLEANUP
+    // ---------------------------
     const handleResize = () => {
-      chart.resize(chartContainerRef.current!.clientWidth, 400, false);
+      mainChart.resize(mainChartContainerRef.current!.clientWidth, 300);
+      if (rsiChart && rsiChartContainerRef.current) {
+        rsiChart.resize(rsiChartContainerRef.current.clientWidth, 200);
+      }
     };
     window.addEventListener('resize', handleResize);
 
-    // Subscribe to chart click events using IChartApi.subscribeClick()
-    // Use MouseEventParams with generic type Time to match the expected type.
-    const handleChartClick = (param: MouseEventParams<Time>) => {
-      if (!param.point) return;
-      console.log(`Chart clicked at (${param.point.x}, ${param.point.y}) at time: ${param.time}`);
-    };
-    chart.subscribeClick(handleChartClick);
-
-    // Cleanup on unmount: remove event listeners and dispose of the chart
     return () => {
       window.removeEventListener('resize', handleResize);
-      chart.unsubscribeClick(handleChartClick);
-      chart.remove();
+      mainChart.remove();
+      if (rsiChart) {
+        rsiChart.remove();
+      }
     };
-  }, [financialData, selectedAsset, selectedInterval]);
+  }, [financialData, selectedAsset, selectedInterval, technicalIndicators]);
 
-  return <div ref={chartContainerRef} style={{ width: '100%', height: '400px', margin: '0 auto' }} />;
+  return (
+    <div style={{ width: '100%' }}>
+      <div ref={mainChartContainerRef} style={{ width: '100%', height: '300px' }} />
+      {technicalIndicators.rsi && (
+        <div
+          ref={rsiChartContainerRef}
+          style={{ width: '100%', height: '200px', marginTop: '16px' }}
+        />
+      )}
+    </div>
+  );
 };
 
 export default CandleChart;

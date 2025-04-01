@@ -7,6 +7,7 @@ import TimePeriodSelector from "@/app/dashboard/components/visualizations/timepe
 import ForecastChart from "@/app/dashboard/components/visualizations/forecastchart";
 import DashboardCards from "@/app/dashboard/components/visualizations/dashboardCards";
 import AssetInfo from "./components/asset-info/asset-info";
+import TechnicalIndicators from "./components/visualizations/technicalIndicators";
 
 import {
   Card,
@@ -37,6 +38,15 @@ export default function Page() {
           </TabsList>
           <TabsContent value="overview" className="space-y-4">
             <DashboardCards />
+            <Card>
+              <CardHeader>
+                <CardTitle>Technical Indicators</CardTitle>
+              </CardHeader>
+              <CardContent className="pl-6">
+                <TechnicalIndicators />
+              </CardContent>
+            </Card>
+            
             <div className="flex justify-center">
               <Card className="col-span-2 lg:col-span-4 w-full">
                 <CardHeader>
