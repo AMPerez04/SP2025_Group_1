@@ -4,9 +4,19 @@ import {
   CandlestickData,
   CandlestickSeries,
   UTCTimestamp,
-  IChartApi
+  MouseEventParams,
+  Time,
 } from 'lightweight-charts';
 import { useStore } from '../../../../zustand/store';
+
+// Define a type for the financial data point
+interface FinancialPoint {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  value: number; // This represents the close value
+}
 
 const CandleChart: React.FC = () => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -51,37 +61,39 @@ const CandleChart: React.FC = () => {
     });
 
     // Create a candlestick series with custom options:
-    // "downColor" sets the color for bearish candles (when price drops)
     const candleSeries = chart.addSeries(CandlestickSeries, {
-        upColor: '#2d9c41',
-        downColor: '#e22e29',
-        borderVisible: false,
-        wickUpColor: '#2d9c41',
-        wickDownColor: '#e22e29',
-      });
+      upColor: '#2d9c41',
+      downColor: '#e22e29',
+      borderVisible: false,
+      wickUpColor: '#2d9c41',
+      wickDownColor: '#e22e29',
+    });
       
-
-    // Map the financial data into the expected format for candlesticks
+    // Map the financial data into the expected format for candlesticks.
+    // Casting here asserts that the data contains open, high, and low.
     if (selectedAsset && financialData[selectedAsset.ticker]) {
-      const data: CandlestickData[] = financialData[selectedAsset.ticker].map((point: any) => ({
-        time: point.time as UTCTimestamp,
-        open: point.open,
-        high: point.high,
-        low: point.low,
-        close: point.value,
-      }));
+      const data: CandlestickData[] = (financialData[selectedAsset.ticker] as FinancialPoint[]).map(
+        (point: FinancialPoint) => ({
+          time: point.time as UTCTimestamp,
+          open: point.open,
+          high: point.high,
+          low: point.low,
+          close: point.value,
+        })
+      );
       candleSeries.setData(data);
       chart.timeScale().fitContent();
     }
 
-    // Example: Handling chart resizing using the IChartApi.resize() method
+    // Handle chart resizing using the IChartApi.resize() method
     const handleResize = () => {
       chart.resize(chartContainerRef.current!.clientWidth, 400, false);
     };
     window.addEventListener('resize', handleResize);
 
-    // Example: Subscribing to chart click events using IChartApi.subscribeClick()
-    const handleChartClick = (param: any) => {
+    // Subscribe to chart click events using IChartApi.subscribeClick()
+    // Use MouseEventParams with generic type Time to match the expected type.
+    const handleChartClick = (param: MouseEventParams<Time>) => {
       if (!param.point) return;
       console.log(`Chart clicked at (${param.point.x}, ${param.point.y}) at time: ${param.time}`);
     };
