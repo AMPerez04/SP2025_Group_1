@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { useStore } from '../../../../zustand/store';
+import React, { useEffect, useState } from "react";
+import { useStore } from "../../../../zustand/store";
 import { cn, Period, Interval, periodIntervalMap } from "@/lib/utils";
 
 interface TimePeriodSelectorProps {
   hasCandleOption: boolean;
 }
 
-const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({ hasCandleOption }) => {
+const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({
+  hasCandleOption,
+}) => {
   const selectedPeriod = useStore((state) => state.selectedPeriod as Period);
   const setSelectedPeriod = useStore((state) => state.setSelectedPeriod);
 
@@ -48,7 +50,7 @@ const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({ hasCandleOption
                 key={period}
                 onClick={() => handlePeriodChange(period as Period)}
                 className={cn(
-                  "w-24 px-4 py-2 border-c last:border-0 text-center",
+                  "px-4 py-2 border-c last:border-0 text-center",
                   selectedPeriod === period
                     ? "bg-gray-500 rounded text-white"
                     : "bg-transparent text-gray-500 hover:bg-sidebar-hover"
@@ -70,7 +72,7 @@ const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({ hasCandleOption
                 key={interval}
                 onClick={() => handleIntervalChange(interval)}
                 className={cn(
-                  "w-24 px-4 py-2 border-c last:border-0 text-center",
+                  "px-4 py-2 border-c last:border-0 text-center",
                   selectedInterval === interval
                     ? "bg-gray-500 rounded text-white"
                     : "bg-transparent text-gray-500 hover:bg-sidebar-hover"
@@ -85,30 +87,30 @@ const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({ hasCandleOption
 
       {/* Right side: Chart Type Selector */}
       {hasCandleOption && (
-      <div className="flex space-x-0.5">
-        <button
-          onClick={() => setChartType("area")}
-          className={cn(
-            "w-24 px-4 py-2 border-c last:border-0 text-center",
-            chartType === "area"
-              ? "bg-gray-500 rounded text-white"
-              : "bg-transparent text-gray-500 hover:bg-sidebar-hover"
-          )}
-        >
-          Area
-        </button>
-        <button
-          onClick={() => setChartType("candle")}
-          className={cn(
-            "w-24 px-4 py-2 border-c last:border-0 text-center",
-            chartType === "candle"
-              ? "bg-gray-500 rounded text-white"
-              : "bg-transparent text-gray-500 hover:bg-sidebar-hover"
-          )}
-        >
-          Candle
-        </button>
-      </div>
+        <div className="flex space-x-0.5">
+          <button
+            onClick={() => setChartType("area")}
+            className={cn(
+              "px-4 py-2 border-c last:border-0 text-center",
+              chartType === "area"
+                ? "bg-gray-500 rounded text-white"
+                : "bg-transparent text-gray-500 hover:bg-sidebar-hover"
+            )}
+          >
+            Area
+          </button>
+          <button
+            onClick={() => setChartType("candle")}
+            className={cn(
+              "px-4 py-2 border-c last:border-0 text-center",
+              chartType === "candle"
+                ? "bg-gray-500 rounded text-white"
+                : "bg-transparent text-gray-500 hover:bg-sidebar-hover"
+            )}
+          >
+            Candle
+          </button>
+        </div>
       )}
     </div>
   );
