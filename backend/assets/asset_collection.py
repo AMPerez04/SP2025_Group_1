@@ -10,7 +10,7 @@ current_directory = os.path.join(os.getcwd(), 'assets')
 assets_json_path = os.path.join(current_directory, 'assets.json')
 
 def upload_mongo():
-    client = MongoClient(os.getenv("MONGO_URL"))
+    client = MongoClient(os.getenv("MONGO_URI"))
     db = client["stock_dashboard"]
     collection = db["assets"]
 
