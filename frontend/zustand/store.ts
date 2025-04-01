@@ -49,7 +49,97 @@ export interface TimeSeriesPoint {
 }
 
 export type TimeSeriesData = Record<string, TimeSeriesPoint[]>;
+interface OptionsChain {
+  strike: number;
+  lastPrice: number;
+  bid: number;
+  ask: number;
+  change: number;
+  percentChange: number;
+  volume: number;
+  openInterest: number;
+  impliedVolatility: number;
+  inTheMoney: boolean;
+  europeanPrice: number;
+  americanPrice: number;
+  earlyExerciseValue: number;
+  modelPriceDifference: number;
+}
 
+// Enhanced OptionsData type
+interface OptionsData {
+  calls: OptionsChain[];
+  puts: OptionsChain[];
+  expirationDates: string[];
+  selectedDate: string;
+  underlyingPrice: number;
+  dividendYield: number;
+  interestRate: number;
+}
+
+// New types for volatility surface
+// Surface type that matches the backend PlotlySurface model
+interface VolatilitySurface {
+  type: string;
+  x: number[];           // Strike prices
+  y: number[];           // Days to expiry
+  z: number[][];         // Implied Volatility grid
+  colorscale: string;
+  showscale: boolean;
+  colorbar: {
+    title: string;
+    thickness: number;
+    len: number;
+  };
+  contours: {
+    z: {
+      show: boolean;
+      usecolormap: boolean;
+      highlightcolor: string;
+      project: { z: boolean };
+    };
+  };
+  hovertemplate: string;
+}
+
+
+// Types for binomial tree visualization
+interface BinomialTreeNode {
+  id: string;
+  level: number;
+  position: number;
+  stock_price: number;
+  option_price_american: number;
+  option_price_european: number;
+  early_exercise: boolean;
+}
+
+interface BinomialTreeLink {
+  source: string;
+  target: string;
+  probability: number;
+  direction: string;
+}
+
+interface BinomialTreeParams {
+  up_factor: number;
+  risk_neutral_probability: number;
+  risk_free_growth: number;
+  time_step: number;
+  steps: number;
+  option_type: string;
+  strike: number;
+  initial_price: number;
+  interest_rate: number;
+  volatility: number;
+  dividend_yield: number;
+}
+
+interface BinomialTree {
+  nodes: BinomialTreeNode[];
+  links: BinomialTreeLink[];
+  parameters: BinomialTreeParams;
+}
 interface Store {
   // user info
   user: User;
@@ -103,7 +193,29 @@ interface Store {
   // toast notification error message
   errorMessage: string;
   setError: (errorMessage: string) => void;
+
+  // Options data
+  optionsData: OptionsData | null;
+  optionsLoading: boolean;
+  // Volatility surface
+  volatilitySurface: VolatilitySurface | null;
+  volatilitySurfaceLoading: boolean;
+  // Binomial tree
+  binomialTree: BinomialTree | null;
+  binomialTreeLoading: boolean;
+  
+  // Functions
+  fetchOptionsData: (ticker: string, expirationDate?: string) => Promise<void>;
+  fetchVolatilitySurface: (ticker: string, expirationDate?: string) => Promise<void>;
+  fetchBinomialTree: (
+    ticker: string, 
+    strike: number, 
+    expirationDate: string, 
+    optionType?: string,
+    steps?: number
+  ) => Promise<void>;
 }
+
 
 export const useStore = create<Store>((set, get) => ({
   user: {
@@ -400,6 +512,96 @@ export const useStore = create<Store>((set, get) => ({
     }
   },
 
+  // Options data
+  optionsData: null,
+  optionsLoading: false,
+  volatilitySurface: null as VolatilitySurface | null,
+  volatilitySurfaceLoading: false,
+  binomialTree: null,
+  binomialTreeLoading: false,
+  
+  fetchOptionsData: async (ticker, expirationDate) => {
+    try {
+      set({ optionsLoading: true });
+      const url = expirationDate
+        ? `${BACKEND_URL}/options/${ticker}?expiration_date=${expirationDate}`
+        : `${BACKEND_URL}/options/${ticker}`;
+        
+      const response = await fetch(url, { credentials: "include" });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch options data');
+      }
+      
+      const data = await response.json();
+      set({ optionsData: data, optionsLoading: false });
+    } catch (error) {
+      console.error('Error fetching options data:', error);
+      set({ 
+        optionsLoading: false, 
+        optionsData: null,
+        errorMessage: `Failed to fetch options data for ${ticker}`
+      });
+    }
+  },
+  
+  fetchVolatilitySurface: async (ticker: string, expirationDate?: string) => {
+    try {
+      set({ volatilitySurfaceLoading: true });
+      
+      const url = expirationDate 
+        ? `${BACKEND_URL}/options/${ticker}/volatility-surface?expiration_date=${expirationDate}`
+        : `${BACKEND_URL}/options/${ticker}/volatility-surface`;
+        
+      const response = await fetch(url, { credentials: "include" });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch volatility surface data');
+      }
+      
+      const data = await response.json();
+      set({ volatilitySurface: data, volatilitySurfaceLoading: false });
+      
+      // If we don't already have options data (which includes the price),
+      // fetch that too so we have the current price
+      if (!get().optionsData) {
+        get().fetchOptionsData(ticker);
+      }
+    } catch (error) {
+      console.error('Error fetching volatility surface:', error);
+      set({ 
+        volatilitySurfaceLoading: false, 
+        volatilitySurface: null
+      });
+    }
+  },
+  
+  fetchBinomialTree: async (ticker, strike, expirationDate, optionType = 'call', steps = 5) => {
+    try {
+      set({ binomialTreeLoading: true });
+      const response = await fetch(
+        `${BACKEND_URL}/options/${ticker}/binomial-tree?` + 
+        `strike=${strike}&expiration_date=${expirationDate}&option_type=${optionType}&steps=${steps}`, 
+        { credentials: "include" }
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch binomial tree data');
+      }
+      
+      const data = await response.json();
+      set({ binomialTree: data, binomialTreeLoading: false });
+    } catch (error) {
+      console.error('Error fetching binomial tree:', error);
+      set({ 
+        binomialTreeLoading: false, 
+        binomialTree: null
+      });
+    }
+  },
+  
   errorMessage: "",
   setError: (errorMessage) => set({ errorMessage }),
 }));
+
+export type { OptionsData, OptionsChain, VolatilitySurface, BinomialTree };

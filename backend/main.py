@@ -18,6 +18,7 @@ from analytics.data_fetcher import fetch_stock_data, get_market_status
 import logging
 from analytics.arima_model import ForecastModelFactory, MarketCalendar, ModelConfig
 import pandas as pd
+from options import options_router
 
 
 logging.basicConfig(
@@ -48,6 +49,8 @@ app.add_middleware(
     max_age=86400,  # persist for one day (86400 seconds)
     same_site="lax",  # or "strict", depending on your needs
 )
+
+app.include_router(options_router)
 # MongoDB connection
 client = MongoClient(os.getenv("MONGO_URI"))
 db = client["stock_dashboard"]
