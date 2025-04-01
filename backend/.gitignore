@@ -68,3 +68,5 @@ htmlcov/
 
 #stock_dashboard.assets.json
 stock_dashboard.assets.json
+
+/assets/

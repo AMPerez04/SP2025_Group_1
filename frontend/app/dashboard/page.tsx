@@ -17,8 +17,12 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AssetHeader from "./components/asset-header";
+import CandleChart from "./components/visualizations/candlechart";
+import { useStore } from "@/zustand/store";
 
 export default function Page() {
+  const chartType = useStore((state) => state.chartType);
+
   return (
     <div className="flex-col md:flex">
       <div className="flex-1 space-y-4">
@@ -39,12 +43,9 @@ export default function Page() {
                   <CardTitle>Price</CardTitle>
                 </CardHeader>
                 <CardContent className="pl-2">
-                  <TimePeriodSelector />
+                  <TimePeriodSelector hasCandleOption={true}/>
                   <ResponsiveContainer width="100%" height="100%">
-                    {/* <p className="text-center italic w-[600px]">
-                      Insert visualization here
-                    </p> */}
-                    <AreaChart />
+                    {chartType === "area" ? <AreaChart /> : <CandleChart />}
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
@@ -59,7 +60,7 @@ export default function Page() {
                   <CardTitle>Price Prediction</CardTitle>
                 </CardHeader>
                 <CardContent className="pl-2">
-                  <TimePeriodSelector />
+                  <TimePeriodSelector hasCandleOption={false}/>
                   <ResponsiveContainer width="100%" height="100%">
                     <ForecastChart />
                   </ResponsiveContainer>

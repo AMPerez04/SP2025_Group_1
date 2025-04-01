@@ -20,7 +20,7 @@ from analytics.arima_model import ForecastModelFactory, MarketCalendar, ModelCon
 import pandas as pd
 import yfinance as yf
 from datetime import datetime, timezone
-
+from fastapi.responses import JSONResponse
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,7 +37,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    
+
     allow_headers=["*"],
 )
 
@@ -56,6 +58,14 @@ db = client["stock_dashboard"]
 
 # Create a password hashing context (using bcrypt)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Error processing request: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error"},
+    )
 
 
 @app.get("/")
