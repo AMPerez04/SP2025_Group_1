@@ -2,13 +2,13 @@
 
 ## Team Members
 
-- **Austin Perez** | a.m.perez@wustl.edu | AMPerez04
-- **AJ Hoyt** | a.j@wustl.edu | ajhoyt
-- **Daniel Ribeiro** | d.d.ribeiro@wustl.edu | dani-ribeiro
+- **Austin Perez** | <a.m.perez@wustl.edu> | AMPerez04
+- **AJ Hoyt** | <a.j@wustl.edu> | ajhoyt
+- **Daniel Ribeiro** | <d.d.ribeiro@wustl.edu> | dani-ribeiro
 
 ## TA
 
-Professor Artem Chernyak (artemc@wustl.edu)
+Professor Artem Chernyak (<artemc@wustl.edu>)
 
 ## Objectives
 
@@ -18,7 +18,7 @@ Our project is a stock option dashboard that provides authentication, paper trad
 
 _Instructions for how to run your project. Include the URI to your project at the top if applicable._
 
-### Running the Project with Docker:
+### Running the Project with Docker
 
 #### Ensure you are in the root directory of the project
 
@@ -37,7 +37,7 @@ npm install
 npm run dev
 ```
 
-#### 2. Run the backend:
+### 2. Run the backend
 
 ```bash
 cd backend
