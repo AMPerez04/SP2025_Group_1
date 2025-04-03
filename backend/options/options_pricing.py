@@ -49,7 +49,10 @@ def CRRparams(T, r, v, N):
         r_scalar = r[0] if len(r) > 0 else 0.05  # Default if empty
         R = np.exp(r * dt)  # Keep array for time-varying rates
         R_scalar = np.exp(r_scalar * dt)
-        pu = (R_scalar - down) / (up - down)  # Use scalar for probability
+        if abs(up - down) < 1e-10:  # Check for near-zero denominator
+            pu = 0.5  # Default to 0.5 probability if parameters are degenerate
+        else:
+            pu = (R_scalar - down) / (up - down)  # Use scalar for probability
         
     return pu, up, R
 

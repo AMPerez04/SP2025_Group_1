@@ -19,7 +19,7 @@ import logging
 from analytics.arima_model import ForecastModelFactory, MarketCalendar, ModelConfig
 import pandas as pd
 from options import options_router
-
+from news import news_router
 import yfinance as yf
 from datetime import datetime, timezone
 from fastapi.responses import JSONResponse
@@ -56,6 +56,7 @@ app.add_middleware(
 )
 
 app.include_router(options_router)
+app.include_router(news_router)
 # MongoDB connection
 client = MongoClient(os.getenv("MONGO_URI"))
 db = client["stock_dashboard"]
