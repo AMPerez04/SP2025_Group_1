@@ -1,5 +1,6 @@
 ---
-# Backend Deployment with Resource Limits
+# BACKEND #############################################
+# Backend Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -32,7 +33,7 @@ spec:
               cpu: "300m"
               memory: "512Mi"
 ---
-# Backend Service: Exposes the backend on port 8000
+# Backend Service: Exposes backend on port 8000
 apiVersion: v1
 kind: Service
 metadata:
@@ -44,7 +45,29 @@ spec:
     - port: 8000
       targetPort: 8000
 ---
-# Frontend Deployment with Resource Limits
+# Backend Ingress: Routes traffic to backend service
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backend-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  rules:
+    - http:
+        paths:
+          - pathType: ImplementationSpecific
+            path: /api(/|$)(.*)
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+
+---
+# FRONTEND #############################################
+# Frontend Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -74,7 +97,7 @@ spec:
               cpu: "250m"
               memory: "256Mi"
 ---
-# Frontend Service: Exposes the frontend externally via a LoadBalancer on port 3000
+# Frontend Service: Exposes backend on port 3000
 apiVersion: v1
 kind: Service
 metadata:
@@ -86,8 +109,26 @@ spec:
   ports:
     - port: 3000
       targetPort: 3000
+---
+# Frontend Ingress: Routes traffic to frontend service
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend-ingress
+spec:
+  rules:
+    - http:
+        paths:
+          - pathType: Prefix
+            path: /
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 3000
 
 ---
+# MONGO DATABASE #############################################
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -123,6 +164,7 @@ spec:
             storage: 1Gi
 
 ---
+# MongoDB Service: Exposes DB on port 27017
 apiVersion: v1
 kind: Service
 metadata:
@@ -133,40 +175,3 @@ spec:
   ports:
     - port: 27017
       targetPort: 27017
-
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: frontend-ingress
-spec:
-  rules:
-    - http:
-        paths:
-          - pathType: Prefix
-            path: /
-            backend:
-              service:
-                name: frontend
-                port:
-                  number: 3000
-
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: backend-ingress
-  annotations:
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
-spec:
-  rules:
-    - http:
-        paths:
-          - pathType: ImplementationSpecific
-            path: /api(/|$)(.*)
-            backend:
-              service:
-                name: backend
-                port:
-                  number: 8000
