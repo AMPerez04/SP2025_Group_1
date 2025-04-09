@@ -74,7 +74,7 @@ interface DescriptionData {
 }
 
 export type TimeSeriesPoint =
-  | { time: number; value: number }  // For area charts
+  | { time: number; value: number } // For area charts
   | { time: number; open: number; high: number; low: number; value: number }; // For candlestick charts
 
 export type TimeSeriesData = Record<string, TimeSeriesPoint[]>;
@@ -110,9 +110,9 @@ interface OptionsData {
 // Surface type that matches the backend PlotlySurface model
 interface VolatilitySurface {
   type: string;
-  x: number[];           // Strike prices
-  y: number[];           // Days to expiry
-  z: number[][];         // Implied Volatility grid
+  x: number[]; // Strike prices
+  y: number[]; // Days to expiry
+  z: number[][]; // Implied Volatility grid
   colorscale: string;
   showscale: boolean;
   colorbar: {
@@ -130,7 +130,6 @@ interface VolatilitySurface {
   };
   hovertemplate: string;
 }
-
 
 // Types for binomial tree visualization
 interface BinomialTreeNode {
@@ -263,14 +262,17 @@ interface Store {
   // Binomial tree
   binomialTree: BinomialTree | null;
   binomialTreeLoading: boolean;
-  
+
   // Functions
   fetchOptionsData: (ticker: string, expirationDate?: string) => Promise<void>;
-  fetchVolatilitySurface: (ticker: string, expirationDate?: string) => Promise<void>;
+  fetchVolatilitySurface: (
+    ticker: string,
+    expirationDate?: string
+  ) => Promise<void>;
   fetchBinomialTree: (
-    ticker: string, 
-    strike: number, 
-    expirationDate: string, 
+    ticker: string,
+    strike: number,
+    expirationDate: string,
     optionType?: string,
     steps?: number
   ) => Promise<void>;
@@ -280,7 +282,6 @@ interface Store {
   fetchNewsArticles: (ticker: string) => Promise<void>;
 
 }
-
 
 export const useStore = create<Store>((set, get) => ({
   user: {
@@ -399,12 +400,12 @@ export const useStore = create<Store>((set, get) => ({
           set({
             selectedAsset: get()?.watchlist[0]
               ? {
-                assetLogo: get()?.watchlist[0].Icon,
-                companyName: get()?.watchlist[0].FullName,
-                ticker: get()?.watchlist[0].Ticker,
-                marketName: get()?.watchlist[0].MarketName,
-                marketLogo: get()?.watchlist[0].MarketLogo,
-              }
+                  assetLogo: get()?.watchlist[0].Icon,
+                  companyName: get()?.watchlist[0].FullName,
+                  ticker: get()?.watchlist[0].Ticker,
+                  marketName: get()?.watchlist[0].MarketName,
+                  marketLogo: get()?.watchlist[0].MarketLogo,
+                }
               : null,
           });
         }
@@ -425,9 +426,12 @@ export const useStore = create<Store>((set, get) => ({
   getAssets: async (searchQuery) => {
     const query = searchQuery.length < 1 ? "A" : searchQuery;
     try {
-      const response = await fetch(`${BACKEND_URL}/search?query=${query}`, {
-        credentials: "include",
-      });
+      const response = await fetch(
+        `${BACKEND_URL}/search?query=${encodeURIComponent(query)}`,
+        {
+          credentials: "include",
+        }
+      );
       const data = await response.json();
       set({ assets: data });
     } catch (error) {
@@ -502,7 +506,6 @@ export const useStore = create<Store>((set, get) => ({
 
         return acc;
       }, {} as Record<string, { time: number; open: number; high: number; low: number; value: number }[]>);
-
 
       if (Object.keys(transformedData).length === 0) {
         throw new Error("ERROR: transformedData is empty");
@@ -630,93 +633,99 @@ export const useStore = create<Store>((set, get) => ({
   volatilitySurfaceLoading: false,
   binomialTree: null,
   binomialTreeLoading: false,
-  
+
   fetchOptionsData: async (ticker, expirationDate) => {
     try {
       set({ optionsLoading: true });
       const url = expirationDate
         ? `${BACKEND_URL}/options/${ticker}?expiration_date=${expirationDate}`
         : `${BACKEND_URL}/options/${ticker}`;
-        
+
       const response = await fetch(url, { credentials: "include" });
-      
+
       if (!response.ok) {
-        throw new Error('Failed to fetch options data');
+        throw new Error("Failed to fetch options data");
       }
-      
+
       const data = await response.json();
       set({ optionsData: data, optionsLoading: false });
     } catch (error) {
-      console.error('Error fetching options data:', error);
-      set({ 
-        optionsLoading: false, 
+      console.error("Error fetching options data:", error);
+      set({
+        optionsLoading: false,
         optionsData: null,
-        errorMessage: `Failed to fetch options data for ${ticker}`
+        errorMessage: `Failed to fetch options data for ${ticker}`,
       });
     }
   },
-  
+
   fetchVolatilitySurface: async (ticker: string, expirationDate?: string) => {
     try {
       set({ volatilitySurfaceLoading: true });
-      
-      const url = expirationDate 
+
+      const url = expirationDate
         ? `${BACKEND_URL}/options/${ticker}/volatility-surface?expiration_date=${expirationDate}`
         : `${BACKEND_URL}/options/${ticker}/volatility-surface`;
-        
+
       const response = await fetch(url, { credentials: "include" });
-      
+
       if (!response.ok) {
-        throw new Error('Failed to fetch volatility surface data');
+        throw new Error("Failed to fetch volatility surface data");
       }
-      
+
       const data = await response.json();
       set({ volatilitySurface: data, volatilitySurfaceLoading: false });
-      
+
       // If we don't already have options data (which includes the price),
       // fetch that too so we have the current price
       if (!get().optionsData) {
         get().fetchOptionsData(ticker);
       }
     } catch (error) {
-      console.error('Error fetching volatility surface:', error);
-      set({ 
-        volatilitySurfaceLoading: false, 
-        volatilitySurface: null
+      console.error("Error fetching volatility surface:", error);
+      set({
+        volatilitySurfaceLoading: false,
+        volatilitySurface: null,
       });
     }
   },
-  
-  fetchBinomialTree: async (ticker, strike, expirationDate, optionType = 'call', steps = 5) => {
+
+  fetchBinomialTree: async (
+    ticker,
+    strike,
+    expirationDate,
+    optionType = "call",
+    steps = 5
+  ) => {
     try {
       set({ binomialTreeLoading: true });
       const response = await fetch(
-        `${BACKEND_URL}/options/${ticker}/binomial-tree?` + 
-        `strike=${strike}&expiration_date=${expirationDate}&option_type=${optionType}&steps=${steps}`, 
+        `${BACKEND_URL}/options/${ticker}/binomial-tree?` +
+          `strike=${strike}&expiration_date=${expirationDate}&option_type=${optionType}&steps=${steps}`,
         { credentials: "include" }
       );
-      
+
       if (!response.ok) {
-        throw new Error('Failed to fetch binomial tree data');
+        throw new Error("Failed to fetch binomial tree data");
       }
-      
+
       const data = await response.json();
       set({ binomialTree: data, binomialTreeLoading: false });
     } catch (error) {
-      console.error('Error fetching binomial tree:', error);
-      set({ 
-        binomialTreeLoading: false, 
-        binomialTree: null
+      console.error("Error fetching binomial tree:", error);
+      set({
+        binomialTreeLoading: false,
+        binomialTree: null,
       });
     }
   },
-  
+
   errorMessage: "",
   setError: (errorMessage) => set({ errorMessage }),
 
   chartType: "area", // default to "area" chart
   setChartType: (chartType: "area" | "candle") => set({ chartType }),
-  
+
   // Technical Indicators State for Overlays
   technicalIndicators: {
     sma: false,
