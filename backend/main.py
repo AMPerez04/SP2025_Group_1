@@ -19,7 +19,7 @@ import logging
 from analytics.arima_model import ForecastModelFactory, MarketCalendar, ModelConfig
 import pandas as pd
 from options import options_router
-
+from news import news_router
 import yfinance as yf
 from datetime import datetime, timezone
 from fastapi.responses import JSONResponse
@@ -40,8 +40,6 @@ app.add_middleware(
     allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    
-
     allow_headers=["*"],
 )
 
@@ -56,12 +54,14 @@ app.add_middleware(
 )
 
 app.include_router(options_router)
+app.include_router(news_router)
 # MongoDB connection
 client = MongoClient(os.getenv("MONGO_URI"))
 db = client["stock_dashboard"]
 
 # Create a password hashing context (using bcrypt)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -229,7 +229,7 @@ async def remove_from_watchlist(request: WatchlistRequest):
         ticker_exists = any(
             item["Ticker"] == ticker for item in watchlist_collection.get("Tickers", [])
         )
-        
+
         if ticker_exists:
             watchlists.update_one(
                 {"_id": mongo_id},
@@ -461,9 +461,11 @@ async def submit_survey(request: SurveySubmission):
 
     return
 
+
 # ================================================================================================================================
 # === asset data =================================================================================================================
 # ================================================================================================================================
+
 
 @app.get("/data")
 def fetch_financial_data(ticker: str, period: str = "1y", interval: str = "1d"):
@@ -485,9 +487,11 @@ def fetch_financial_data(ticker: str, period: str = "1y", interval: str = "1d"):
         return stock_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
-    
+
+
 class QuoteRequest(BaseModel):
     ticker: str
+
 
 @app.post("/quote")
 def get_quote(request: QuoteRequest):
@@ -499,11 +503,16 @@ def get_quote(request: QuoteRequest):
         info = stock.info
 
         def format_date(epoch):
-            return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime("%b %d, %Y") if isinstance(epoch, (int, float)) else "--"
+            return (
+                datetime.fromtimestamp(epoch, tz=timezone.utc).strftime("%b %d, %Y")
+                if isinstance(epoch, (int, float))
+                else "--"
+            )
+
         def format_large_nums(val):
             if not isinstance(val, (int, float)):
                 return "--"
-            
+
             abs_val = abs(val)
             if abs_val >= 1e12:
                 return f"{val / 1e12:,.3f}T"
@@ -544,14 +553,15 @@ def get_quote(request: QuoteRequest):
                 if info.get("dividendRate") and info.get("dividendYield")
                 else "--"
             ),
-            "exDividendDate": format_date(info.get('exDividendDate')),
+            "exDividendDate": format_date(info.get("exDividendDate")),
             "targetEst": safe_format(info.get("targetMeanPrice")),
         }
 
         return quote
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+
 @app.post("/about")
 def get_about(request: QuoteRequest):
     """
@@ -562,11 +572,16 @@ def get_about(request: QuoteRequest):
         info = stock.info
 
         def format_date(epoch):
-            return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime("%B %d") if isinstance(epoch, (int, float)) else "--"
+            return (
+                datetime.fromtimestamp(epoch, tz=timezone.utc).strftime("%B %d")
+                if isinstance(epoch, (int, float))
+                else "--"
+            )
+
         def format_large_nums(val):
             if not isinstance(val, (int, float)):
                 return "--"
-            
+
             abs_val = abs(val)
             if abs_val >= 1e12:
                 return f"{val / 1e12:,.1f}T"
@@ -584,14 +599,19 @@ def get_about(request: QuoteRequest):
             "industry": info.get("industry", "--"),
             "employees": format_large_nums(info.get("fullTimeEmployees")),
             "nextFiscalYearEnd": format_date(info.get("nextFiscalYearEnd", "--")),
-            "location": f'{info.get("city")}, {info.get("state")}' if (info.get("city") and info.get("state")) else "--",
-            "leadership": info.get("companyOfficers")[0]["name"] if info.get("companyOfficers") else "--",
+            "location": f"{info.get('city')}, {info.get('state')}"
+            if (info.get("city") and info.get("state"))
+            else "--",
+            "leadership": info.get("companyOfficers")[0]["name"]
+            if info.get("companyOfficers")
+            else "--",
         }
 
         return description
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+
 @app.get("/is_market_open")
 def is_market_open():
     """
@@ -599,13 +619,16 @@ def is_market_open():
     """
     return get_market_status()
 
+
 # ================================================================================================================================
 # === /predict endpoints ========================================================================================================
 # ================================================================================================================================
 
+
 class ARIMATrainResponse(BaseModel, arbitrary_types_allowed=True):
     model: object
     stock_data: dict
+
 
 @app.post("/predict_arima")
 def predict_arima(ticker: str, period: str, interval: str) -> dict:
@@ -659,9 +682,11 @@ def predict_arima(ticker: str, period: str, interval: str) -> dict:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error {e}")
 
+
 # --------------------------
 # Forgot Password Functionality
 # --------------------------
+
 
 # Define a Pydantic model for forgot password request
 class ForgotPasswordRequest(BaseModel):

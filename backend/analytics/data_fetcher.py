@@ -12,9 +12,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def fetch_stock_data(
-    ticker: str, period: str = "1y", interval: str = "1d"
-) -> dict:
+def fetch_stock_data(ticker: str, period: str = "1y", interval: str = "1d") -> dict:
     """
     Fetches stock data for a given ticker symbol
 
@@ -34,16 +32,15 @@ def fetch_stock_data(
 
         if stock_data.empty:
             raise ValueError(f"No data available for ticker {ticker}")
-        
+
         # Convert index to NY timezone
         if stock_data.index.tz is None:
-            stock_data.index = stock_data.index.tz_localize('UTC')
-        stock_data.index = stock_data.index.tz_convert('America/New_York')
+            stock_data.index = stock_data.index.tz_localize("UTC")
+        stock_data.index = stock_data.index.tz_convert("America/New_York")
 
         # Adjust dates for weekly data to show Friday instead of Monday
         if interval == "1wk":
             stock_data.index = stock_data.index + pd.Timedelta(days=4)
-            
 
         result = {ticker: {}}
         for column in ["Open", "High", "Low", "Close", "Volume"]:
@@ -58,8 +55,9 @@ def fetch_stock_data(
     except Exception as e:
         raise ValueError(f"Error fetching data for ticker {ticker}: {e}")
 
+
 def get_market_status():
     """
     Checks if the market is currently open via yfinance
     """
-    return yf.Market("US").status['status']=='open'
+    return yf.Market("US").status["status"] == "open"

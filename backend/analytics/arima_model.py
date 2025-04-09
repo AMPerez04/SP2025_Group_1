@@ -198,7 +198,6 @@ class ModelConfig:
         try:
             return ModelConfig.PDQ_MAP[period][interval]
         except KeyError:
-
             return (1, 0, 1)
 
     @staticmethod
@@ -272,7 +271,6 @@ class TimeSeriesForecaster:
             return True
 
         except Exception:
-
             # Grid search for better parameters
             best_aic = float("inf")
             best_model = None
@@ -302,6 +300,7 @@ class TimeSeriesForecaster:
                 return True
             else:
                 return False
+
     def forecast(self, steps: int = None) -> "ForecastResult":
         """
         Generate forecast using the trained model
@@ -335,7 +334,6 @@ class TimeSeriesForecaster:
 
             # Ensure lengths match before creating Series
             min_length = min(len(future_dates), len(forecast_array))
-            
 
             # Create forecast series directly from arrays
             forecast_series = pd.Series(

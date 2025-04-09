@@ -49,8 +49,11 @@ def CRRparams(T, r, v, N):
         r_scalar = r[0] if len(r) > 0 else 0.05  # Default if empty
         R = np.exp(r * dt)  # Keep array for time-varying rates
         R_scalar = np.exp(r_scalar * dt)
-        pu = (R_scalar - down) / (up - down)  # Use scalar for probability
-        
+        if abs(up - down) < 1e-10:  # Check for near-zero denominator
+            pu = 0.5  # Default to 0.5 probability if parameters are degenerate
+        else:
+            pu = (R_scalar - down) / (up - down)  # Use scalar for probability
+
     return pu, up, R
 
 
@@ -136,25 +139,23 @@ def CRRmDaeC(T, S0, K, Di, ri, v, N):
     """
     pu, up, R = CRRparams(T, ri, v, N)
     S, _, _ = CRRmD(T, S0, Di, ri, v, N)
-    
+
     if v == 0:
         # If volatility is zero, prices are just intrinsic values
         Ca = np.maximum(S - K, 0)
         Ce = np.maximum(S - K, 0)
         EE = np.zeros((N, N), dtype=bool)
         return Ca, Ce, EE
-    
+
     Ca = np.zeros((N + 1, N + 1))
     Ce = np.zeros((N + 1, N + 1))
     EE = np.zeros((N, N), dtype=bool)
-    
-
 
     # Set terminal payoffs
     for j in range(N + 1):
         xC = max(S[N, j] - K, 0)
         Ca[N, j] = Ce[N, j] = xC
-    
+
     # Backward induction
     for n in range(N - 1, -1, -1):
         for j in range(n + 1):
@@ -163,18 +164,22 @@ def CRRmDaeC(T, S0, K, Di, ri, v, N):
                 Rn = float(R[n])
             else:
                 Rn = float(R)
-            
+
             # Calculate expectation values - make sure all components are scalars
-            bCe = (float(pu) * float(Ce[n + 1, j + 1]) + 
-                   (1 - float(pu)) * float(Ce[n + 1, j])) / Rn
-            bCa = (float(pu) * float(Ca[n + 1, j + 1]) + 
-                   (1 - float(pu)) * float(Ca[n + 1, j])) / Rn
+            bCe = (
+                float(pu) * float(Ce[n + 1, j + 1])
+                + (1 - float(pu)) * float(Ce[n + 1, j])
+            ) / Rn
+            bCa = (
+                float(pu) * float(Ca[n + 1, j + 1])
+                + (1 - float(pu)) * float(Ca[n + 1, j])
+            ) / Rn
             xC = max(float(S[n, j]) - float(K), 0)
-            
+
             Ce[n, j] = bCe
             Ca[n, j] = max(bCa, xC)
-            EE[n, j] = (xC > bCa)
-    
+            EE[n, j] = xC > bCa
+
     return Ca, Ce, EE
 
 
@@ -212,8 +217,6 @@ def CRRmDaeP(T, S0, K, Di, ri, v, N):
     Pa = np.zeros((N + 1, N + 1))
     Pe = np.zeros((N + 1, N + 1))
     EE = np.zeros((N, N), dtype=bool)
-
-    
 
     # Set terminal values at (N,j)
     for j in range(N + 1):
@@ -406,7 +409,6 @@ def calculate_option_price_binomial(
     return result["american"] if american else result["european"]
 
 
-
 def generate_binomial_tree_visualization(
     S: float,  # Current stock price
     K: float,  # Strike price
@@ -475,7 +477,7 @@ def generate_binomial_tree_visualization(
                 if j > 0:
                     links.append(
                         {
-                            "source": f"n_{n-1}_{j-1}",
+                            "source": f"n_{n - 1}_{j - 1}",
                             "target": node_id,
                             "probability": float(pu),
                             "direction": "up",
@@ -485,7 +487,7 @@ def generate_binomial_tree_visualization(
                 if j < n:
                     links.append(
                         {
-                            "source": f"n_{n-1}_{j}",
+                            "source": f"n_{n - 1}_{j}",
                             "target": node_id,
                             "probability": float(1 - pu),
                             "direction": "down",
@@ -509,5 +511,3 @@ def generate_binomial_tree_visualization(
             "dividend_yield": float(div_yield),
         },
     }
-
-

@@ -27,9 +27,9 @@ docker compose up --build
 http://localhost:3000
 ```
 
-### Running the project WITHOUT Docker:
+### Running the project WITHOUT Docker
 
-#### 1. Run the frontend:
+#### 1. Run the frontend
 
 ```bash
 cd frontend
