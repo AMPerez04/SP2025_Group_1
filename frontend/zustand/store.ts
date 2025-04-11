@@ -7,7 +7,7 @@ import {
   Interval,
 } from "../lib/utils";
 
-export const BACKEND_URL = "http://localhost:8080/api";
+export const BACKEND_URL = "http://localhost:8000";
 
 interface User {
   ID: string;
@@ -196,6 +196,9 @@ interface Store {
   setSelectedAsset: (asset: SelectedAsset) => void;
   isMarketOpen: boolean;
   getMarketStatus: () => Promise<void>;
+
+  selectedMarket: string | null;
+  setSelectedMarket: (market: string | null) => void;
 
   // watchlist financial data
   financialData: TimeSeriesData;
@@ -420,7 +423,8 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   selectedAsset: null,
-  setSelectedAsset: (asset) => set({ selectedAsset: asset }),
+  setSelectedAsset: (asset) =>
+    set({ selectedAsset: asset, selectedMarket: null }),
 
   isMarketOpen: false,
   getMarketStatus: async () => {
@@ -442,6 +446,10 @@ export const useStore = create<Store>((set, get) => ({
       set({ isMarketOpen: false });
     }
   },
+
+  selectedMarket: "hi",
+  setSelectedMarket: (market) =>
+    set({ selectedMarket: market, selectedAsset: null }),
 
   financialData: {},
   fetchFinancialData: async (
