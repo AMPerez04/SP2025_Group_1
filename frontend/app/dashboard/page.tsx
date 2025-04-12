@@ -10,7 +10,7 @@ import AssetInfo from "./components/asset-info/asset-info";
 import TechnicalIndicators from "./components/visualizations/technicalIndicators";
 import OptionsChain from "./components/visualizations/optionschain";
 import Market from "./components/market-page/market";
-
+import NewsSentiment from "./components/visualizations/newssentiment";
 import {
   Card,
   CardContent,
@@ -37,6 +37,7 @@ export default function Page() {
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="analytics">Insights</TabsTrigger>
+              <TabsTrigger value="news">News</TabsTrigger>
               <TabsTrigger value="options">Options</TabsTrigger>
             </TabsList>
             <TabsContent value="overview" className="space-y-4">
@@ -85,6 +86,13 @@ export default function Page() {
               <Card className="col-span-2 lg:col-span-4 w-full">
                 <CardContent className="p-6">
                   <OptionsChain />
+                </CardContent>
+              </Card>
+            </TabsContent>
+            <TabsContent value="news" className="space-y-4">
+              <Card className="col-span-2 lg:col-span-4 w-full">
+                <CardContent className="p-6">
+                  <NewsSentiment />
                 </CardContent>
               </Card>
             </TabsContent>

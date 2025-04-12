@@ -168,6 +168,19 @@ interface BinomialTree {
   links: BinomialTreeLink[];
   parameters: BinomialTreeParams;
 }
+
+interface NewsArticle {
+  title: string;
+  publisher: string;
+  link: string;
+  published: string;
+  sentiment: number;
+  summary?: string;
+  content?: string;
+  imageUrl?: string;
+  is_scrappable?: boolean;
+}
+
 interface Store {
   // user info
   user: User;
@@ -266,6 +279,10 @@ interface Store {
     optionType?: string,
     steps?: number
   ) => Promise<void>;
+
+  newsArticles: NewsArticle[];
+  newsLoading: boolean;
+  fetchNewsArticles: (ticker: string) => Promise<void>;
 }
 
 export const useStore = create<Store>((set, get) => ({
@@ -739,5 +756,29 @@ export const useStore = create<Store>((set, get) => ({
         bb: false,
       },
     }),
+  newsArticles: [],
+  newsLoading: false,
+  fetchNewsArticles: async (ticker) => {
+    try {
+      set({ newsLoading: true });
+      const response = await fetch(`${BACKEND_URL}/news/${ticker}`, {
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch news");
+      }
+
+      const data = await response.json();
+      set({ newsArticles: data, newsLoading: false });
+    } catch (error) {
+      console.error("Error fetching news:", error);
+      set({
+        newsLoading: false,
+        newsArticles: [],
+        errorMessage: `Failed to fetch news for ${ticker}`,
+      });
+    }
+  },
 }));
 export type { OptionsData, OptionsChain, VolatilitySurface, BinomialTree };

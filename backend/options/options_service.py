@@ -70,10 +70,13 @@ class VolatilitySurface(BaseModel):
         colorbar (Dict): Configuration for the color bar in the plot.
         contour (Dict): Configuration for contour lines on the surface plot.
     """
+
     type: str = "surface"  # Type of the plot, default is 'surface' for Plotly
     x: List[float]  # Strike prices
     y: List[str]  # Expiration dates as strings (was List[int] for days to expiry)
-    z: List[List[Optional[float]]]  # Implied Volatility grid (2D array), Allow None in the grid for Plotly to interpolate
+    z: List[
+        List[Optional[float]]
+    ]  # Implied Volatility grid (2D array), Allow None in the grid for Plotly to interpolate
     colorscale: str = "Viridis"  # Default colorscale for Plotly
     showscale: bool = True  # Show color scale
     colorbar: Dict[str, Union[str, int, float]] = {
@@ -89,9 +92,7 @@ class VolatilitySurface(BaseModel):
             "project": {"z": True},  # Project contours on z-axis
         }
     }  # Contour configuration for the surface plot
-    hovertemplate: str = (
-        "Strike: %{x}<br>Days: %{y}<br>IV: %{z:.2f}<extra></extra>"  # Hover template for the surface plot, used in Plotly to format hover text
-    )
+    hovertemplate: str = "Strike: %{x}<br>Days: %{y}<br>IV: %{z:.2f}<extra></extra>"  # Hover template for the surface plot, used in Plotly to format hover text
 
 
 class BinomialTreeNode(BaseModel):
@@ -362,31 +363,33 @@ async def get_volatility_surface(ticker: str, expiration_date: Optional[str] = N
         expiration_dates = stock.options
         if not expiration_dates:
             return {"surface": {}, "currentPrice": current_price}
-        
+
         # Filter to just the selected expiration date if provided
         if expiration_date and expiration_date in expiration_dates:
-             # For specified date, get that one + next 4 available dates
+            # For specified date, get that one + next 4 available dates
             start_idx = expiration_dates.index(expiration_date)
-            expiration_dates = expiration_dates[start_idx:start_idx+5]
+            expiration_dates = expiration_dates[start_idx : start_idx + 5]
         else:
             # Show only next 5 expiry dates
             expiration_dates = expiration_dates[:5]
 
         # Create coordinate arrays for the surface
         unique_strikes = set()
-        unique_dates = []  
+        unique_dates = []
         all_points = []
 
         for exp_date in expiration_dates:
             # Get the options chain
             options = await get_options_chain(ticker, exp_date)
-            
+
             # Format date for readability (YYYY-MM-DD to MMM DD, YYYY)
-            formatted_date = dt.datetime.strptime(exp_date, "%Y-%m-%d").strftime("%b %d, %Y")
-            
+            formatted_date = dt.datetime.strptime(exp_date, "%Y-%m-%d").strftime(
+                "%b %d, %Y"
+            )
+
             if formatted_date not in unique_dates:
                 unique_dates.append(formatted_date)
-            
+
             # Process calls and puts
             for option_list in [options["calls"], options["puts"]]:
                 for option in option_list:
@@ -428,7 +431,7 @@ async def get_volatility_surface(ticker: str, expiration_date: Optional[str] = N
 
         # Create the Plotly surface object - note we're using unique_dates directly
         surface = VolatilitySurface(
-            type="surface", 
+            type="surface",
             x=strikes,  # Strike prices
             y=unique_dates,  # Use actual date strings instead of days to expiry
             z=z_grid,
@@ -453,7 +456,7 @@ async def get_volatility_surface(ticker: str, expiration_date: Optional[str] = N
             f"Error generating volatility surface for {ticker}: {str(e)}", exc_info=True
         )
         return VolatilitySurface(
-            type="surface", 
+            type="surface",
             x=[0],
             y=["No Data"],  # Use a string instead of number
             z=[[0]],
@@ -546,5 +549,3 @@ async def get_binomial_tree(
         raise HTTPException(
             status_code=500, detail=f"Error generating binomial tree: {str(e)}"
         )
-
-
