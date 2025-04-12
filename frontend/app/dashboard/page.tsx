@@ -9,7 +9,7 @@ import DashboardCards from "@/app/dashboard/components/visualizations/dashboardC
 import AssetInfo from "./components/asset-info/asset-info";
 import TechnicalIndicators from "./components/visualizations/technicalIndicators";
 import OptionsChain from "./components/visualizations/optionschain";
-import Market from "./components/market";
+import Market from "./components/market-page/market";
 
 import {
   Card,

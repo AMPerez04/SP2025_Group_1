@@ -59,7 +59,7 @@ export default function Layout({ children }: LayoutProps) {
             </div>
           </header>
           <div className="p-4 pt-0">
-            {selectedAsset ? (
+            {selectedAsset || selectedMarket ? (
               children
             ) : (
               <div className="flex justify-center items-center h-[calc(100vh-4rem)]">

@@ -447,7 +447,7 @@ export const useStore = create<Store>((set, get) => ({
     }
   },
 
-  selectedMarket: "hi",
+  selectedMarket: null,
   setSelectedMarket: (market) =>
     set({ selectedMarket: market, selectedAsset: null }),
 
