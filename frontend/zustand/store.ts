@@ -411,9 +411,12 @@ export const useStore = create<Store>((set, get) => ({
   getAssets: async (searchQuery) => {
     const query = searchQuery.length < 1 ? "A" : searchQuery;
     try {
-      const response = await fetch(`${BACKEND_URL}/search?query=${query}`, {
-        credentials: "include",
-      });
+      const response = await fetch(
+        `${BACKEND_URL}/search?query=${encodeURIComponent(query)}`,
+        {
+          credentials: "include",
+        }
+      );
       const data = await response.json();
       set({ assets: data });
     } catch (error) {
