@@ -23,7 +23,7 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const { selectedAsset } = useStore((state) => state);
+  const { selectedAsset, selectedMarket } = useStore((state) => state);
 
   return (
     <main>
@@ -39,20 +39,27 @@ export default function Layout({ children }: LayoutProps) {
                   <BreadcrumbItem className="hidden md:block">
                     <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
                   </BreadcrumbItem>
-                  {selectedAsset && (
+                  {selectedAsset ? (
                     <>
                       <BreadcrumbSeparator className="hidden md:block" />
                       <BreadcrumbItem>
                         <BreadcrumbPage>${selectedAsset.ticker}</BreadcrumbPage>
                       </BreadcrumbItem>
                     </>
-                  )}
+                  ) : selectedMarket ? (
+                    <>
+                      <BreadcrumbSeparator className="hidden md:block" />
+                      <BreadcrumbItem>
+                        <BreadcrumbPage>{selectedMarket}</BreadcrumbPage>
+                      </BreadcrumbItem>
+                    </>
+                  ) : null}
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
           </header>
           <div className="p-4 pt-0">
-            {selectedAsset ? (
+            {selectedAsset || selectedMarket ? (
               children
             ) : (
               <div className="flex justify-center items-center h-[calc(100vh-4rem)]">

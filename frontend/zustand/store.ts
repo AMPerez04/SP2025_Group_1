@@ -7,7 +7,7 @@ import {
   Interval,
 } from "../lib/utils";
 
-export const BACKEND_URL = "http://localhost:8080/api";
+export const BACKEND_URL = "http://localhost:8000";
 
 interface User {
   ID: string;
@@ -210,6 +210,9 @@ interface Store {
   isMarketOpen: boolean;
   getMarketStatus: () => Promise<void>;
 
+  selectedMarket: string | null;
+  setSelectedMarket: (market: string | null) => void;
+
   // watchlist financial data
   financialData: TimeSeriesData;
   selectedPeriod: Period;
@@ -280,7 +283,6 @@ interface Store {
   newsArticles: NewsArticle[];
   newsLoading: boolean;
   fetchNewsArticles: (ticker: string) => Promise<void>;
-
 }
 
 export const useStore = create<Store>((set, get) => ({
@@ -441,7 +443,8 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   selectedAsset: null,
-  setSelectedAsset: (asset) => set({ selectedAsset: asset }),
+  setSelectedAsset: (asset) =>
+    set({ selectedAsset: asset, selectedMarket: null }),
 
   isMarketOpen: false,
   getMarketStatus: async () => {
@@ -463,6 +466,10 @@ export const useStore = create<Store>((set, get) => ({
       set({ isMarketOpen: false });
     }
   },
+
+  selectedMarket: null,
+  setSelectedMarket: (market) =>
+    set({ selectedMarket: market, selectedAsset: null }),
 
   financialData: {},
   fetchFinancialData: async (
@@ -749,29 +756,29 @@ export const useStore = create<Store>((set, get) => ({
         bb: false,
       },
     }),
-    newsArticles: [],
-newsLoading: false,
-fetchNewsArticles: async (ticker) => {
-  try {
-    set({ newsLoading: true });
-    const response = await fetch(`${BACKEND_URL}/news/${ticker}`, {
-      credentials: "include",
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch news');
+  newsArticles: [],
+  newsLoading: false,
+  fetchNewsArticles: async (ticker) => {
+    try {
+      set({ newsLoading: true });
+      const response = await fetch(`${BACKEND_URL}/news/${ticker}`, {
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch news");
+      }
+
+      const data = await response.json();
+      set({ newsArticles: data, newsLoading: false });
+    } catch (error) {
+      console.error("Error fetching news:", error);
+      set({
+        newsLoading: false,
+        newsArticles: [],
+        errorMessage: `Failed to fetch news for ${ticker}`,
+      });
     }
-    
-    const data = await response.json();
-    set({ newsArticles: data, newsLoading: false });
-  } catch (error) {
-    console.error('Error fetching news:', error);
-    set({ 
-      newsLoading: false, 
-      newsArticles: [],
-      errorMessage: `Failed to fetch news for ${ticker}`
-    });
-  }
-},
+  },
 }));
 export type { OptionsData, OptionsChain, VolatilitySurface, BinomialTree };

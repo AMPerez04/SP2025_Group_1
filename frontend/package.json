@@ -42,6 +42,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-plotly.js": "^2.6.0",
+    "react-ts-tradingview-widgets": "^1.2.8",
     "recharts": "^2.15.1",
     "sonner": "^1.7.4",
     "tailwind-merge": "^3.0.1",
