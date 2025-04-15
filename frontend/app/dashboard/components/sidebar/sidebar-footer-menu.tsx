@@ -65,47 +65,36 @@ export default function SidebarFooterMenu() {
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState(""); // for password updates
 
-  // For fetching holdings
-  useEffect(() => {
-    const fetchHoldings = async () => {
-      try {
-        const res = await fetch(`${BACKEND_URL}/snaptrade/holdings?user_id=${user.ID}`);
-        const data = await res.json();
-        console.log("SnapTrade Holdings:", data);
-      } catch (err) {
-        console.error("Failed to fetch SnapTrade holdings:", err);
-      }
-    };
 
-    if (user.snaptradeLinked && user.ID) {
-      fetchHoldings();
-    }
-  }, [user]);
   // For checking user secret
+
   useEffect(() => {
     const checkSnapTradeUserSecret = async () => {
       try {
-      const res = await fetch(`${BACKEND_URL}/snaptrade/has-user-secret?user_id=${user.ID}`);
-      const data = await res.json();
-
-      const shouldBeLinked = data === true;
-      toast.info(shouldBeLinked ? "Your investment account is linked." : "Your investment account is not linked.");
-      setSnapTradeLinked(shouldBeLinked);
-
-      if (user.snaptradeLinked !== shouldBeLinked) {
-        setUser({ ...user, snaptradeLinked: shouldBeLinked });
-      }
-
+        const res = await fetch(`${BACKEND_URL}/snaptrade/has-user-secret?user_id=${user.ID}`);
+        const data = await res.json();
+  
+        const shouldBeLinked = data === true;
+        toast.info(
+          shouldBeLinked
+            ? "Your investment account is linked."
+            : "Your investment account is not linked."
+        );
+        setSnapTradeLinked(shouldBeLinked);
+  
+        if (user.snaptradeLinked !== shouldBeLinked) {
+          setUser({ ...user, snaptradeLinked: shouldBeLinked });
+        }
       } catch (err) {
-      console.error("Failed to check SnapTrade user secret:", err);
+        console.error("Failed to check SnapTrade user secret:", err);
       }
     };
-
+  
     if (user.ID) {
       checkSnapTradeUserSecret();
     }
-
-  }, [user.ID]);
+  }, [user, setUser]); 
+  
 
 
 
@@ -242,7 +231,7 @@ export default function SidebarFooterMenu() {
             onClick={() => router.push("/snaptrade/callback")}
             className="text-sm text-muted-foreground underline hover:text-blue-600 transition"
           >
-            View your investment holdings
+            View your investments
           </button>
 
         )}

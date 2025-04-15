@@ -48,7 +48,7 @@ export default function SnapTradeCallbackClient() {
             toast.error("User ID missing. Please refresh or log in again.");
             return;
         }
-
+    
         // Only update if not already linked
         if (!currentUser.snaptradeLinked) {
             toast.success("Your investment account was linked successfully!");
@@ -57,7 +57,7 @@ export default function SnapTradeCallbackClient() {
                 snaptradeLinked: true,
             });
         }
-
+    
         const fetchHoldings = async () => {
             try {
                 const res = await fetch(`${BACKEND_URL}/snaptrade/holdings?user_id=${currentUser.ID}`);
@@ -70,9 +70,10 @@ export default function SnapTradeCallbackClient() {
                 setLoading(false);
             }
         };
-
+    
         fetchHoldings();
-    }, [searchParams]); 
+    }, [searchParams, currentUser, setUser]); 
+    
 
 
     return (

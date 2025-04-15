@@ -313,7 +313,7 @@ async def login(request: Request, user: UserLogin):
                 "email": existing_user["email"],
                 "username": existing_user["username"],
                 "user_id": str(existing_user["_id"]),
-                "snaptrade_user_secret": existing_user["snaptrade_user_secret"],
+                "snaptrade_user_secret": existing_user.get("snaptrade_user_secret"),
             }
         }
     )
@@ -323,7 +323,7 @@ async def login(request: Request, user: UserLogin):
             "email": existing_user["email"],
             "username": existing_user["username"],
             "user_id": str(existing_user["_id"]),
-            "snaptrade_user_secret": existing_user["snaptrade_user_secret"],
+            "snaptrade_user_secret": existing_user.get("snaptrade_user_secret"),
         },
     }
 
