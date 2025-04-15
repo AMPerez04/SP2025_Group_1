@@ -30,7 +30,7 @@ export default function Page() {
   const setUser = useStore((state) => state.setUser);
   const currentUser = useStore((state) => state.user);
 
-  useEffect(() => {
+  const handleUserState = React.useCallback(() => {
     if (!currentUser?.ID) {
         toast.error("ERROR", {
           description: "User ID missing. Please refresh or log in again.",
@@ -43,11 +43,8 @@ export default function Page() {
         });
         return;
     }
-    
     // Only update if not already linked
     if (!currentUser.snaptradeLinked) {
-        toast.success("Your investment account was linked successfully!");
-        
         toast(
           "Your investment account was linked successfully!",
           {
@@ -65,8 +62,11 @@ export default function Page() {
             snaptradeLinked: true,
         });
     }
+  }, [currentUser, setUser]);
 
-}, [currentUser, setUser]); 
+  useEffect(() => {
+    handleUserState();
+  }, [handleUserState]);
 
   if (selectedMarket) {
     return <Market />;
