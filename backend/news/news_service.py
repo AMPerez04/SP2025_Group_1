@@ -9,6 +9,14 @@ from bs4 import BeautifulSoup
 from fastapi import APIRouter, HTTPException, Query
 import logging
 from pydantic import BaseModel
+from transformers import BertTokenizer, BertForSequenceClassification
+import torch
+import torch.nn.functional as F
+
+# Load FinBERT tokenizer and model
+MODEL_NAME = "ProsusAI/finbert"
+tokenizer = BertTokenizer.from_pretrained(MODEL_NAME)
+model = BertForSequenceClassification.from_pretrained(MODEL_NAME)
 
 # Create a logger
 logger = logging.getLogger(__name__)
@@ -40,6 +48,7 @@ class NewsArticle(BaseModel):
     link: str
     published: str
     sentiment: float  # -1 to 1 scale
+    sentiment_details: Optional[dict] = None  # Add this line to store raw FinBERT scores
     summary: Optional[str] = None
     content: Optional[str] = None
     imageUrl: Optional[str] = None
@@ -252,7 +261,9 @@ async def get_news_sentiment(
 
                 # Do sentiment analysis on title and summary
                 text_for_analysis = f"{title} {summary}"
-                sentiment = TextBlob(text_for_analysis).sentiment.polarity
+                sentiment_scores = analyze_sentiment_finbert(text_for_analysis)
+                sentiment = sentiment_scores["positive"] - sentiment_scores["negative"]
+
 
                 # Initialize article with basic data
                 article = NewsArticle(
@@ -261,6 +272,7 @@ async def get_news_sentiment(
                     link=url,
                     published=published_time,
                     sentiment=sentiment,
+                    sentiment_details=sentiment_scores,
                     summary=summary,
                     content=None,
                     imageUrl=image_url,  # Add the image URL
@@ -282,7 +294,8 @@ async def get_news_sentiment(
 
                             # Update sentiment with full content if available
                             full_text = f"{title} {summary} {content_text}"
-                            article.sentiment = TextBlob(full_text).sentiment.polarity
+                            sentiment_scores = analyze_sentiment_finbert(full_text)
+                            article.sentiment = sentiment_scores["positive"] - sentiment_scores["negative"]
 
                 articles.append(article)
             except Exception as e:
@@ -305,3 +318,15 @@ async def get_news_sentiment(
     except Exception as e:
         logger.error(f"Error fetching news for {ticker}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to fetch news: {str(e)}")
+
+
+def analyze_sentiment_finbert(text):
+    """Analyze sentiment using FinBERT."""
+    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
+    outputs = model(**inputs)
+    probs = F.softmax(outputs.logits, dim=-1)  # Convert logits to probabilities
+
+    sentiment_labels = ["negative", "neutral", "positive"]
+    sentiment_scores = {sentiment_labels[i]: probs[0][i].item() for i in range(len(sentiment_labels))}
+
+    return sentiment_scores

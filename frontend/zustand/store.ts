@@ -7,8 +7,8 @@ import {
   Interval,
 } from "../lib/utils";
 
-export const BACKEND_URL = "http://localhost:8080/api";
-
+// export const BACKEND_URL = "http://localhost:8080/api";
+export const BACKEND_URL = "http://localhost:8000";
 interface User {
   ID: string;
   email: string;
