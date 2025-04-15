@@ -23,6 +23,7 @@ import AssetHeader from "./components/asset-header";
 import CandleChart from "./components/visualizations/candlechart";
 import { useStore } from "@/zustand/store";
 import { toast } from "sonner";
+import { TriangleAlert, DollarSign } from "lucide-react";
 
 export default function Page() {
   const { chartType, selectedMarket } = useStore((state) => state);
@@ -31,12 +32,34 @@ export default function Page() {
 
   useEffect(() => {
     if (!currentUser?.ID) {
-        toast.error("User ID missing. Please refresh or log in again.");
+        toast.error("ERROR", {
+          description: "User ID missing. Please refresh or log in again.",
+          style: {
+            borderLeft: "7px solid #d32f2f",
+          },
+          position: "bottom-right",
+          icon: <TriangleAlert width={35} />,
+          duration: 2000,
+        });
         return;
     }
+    
     // Only update if not already linked
     if (!currentUser.snaptradeLinked) {
         toast.success("Your investment account was linked successfully!");
+        
+        toast(
+          "Your investment account was linked successfully!",
+          {
+            style: {
+              borderLeft: "7px solid #2d9c41",
+            },
+            position: "bottom-right",
+            icon: <DollarSign width={35} />,
+            duration: 2000,
+          }
+        );
+        
         setUser({
             ...currentUser,
             snaptradeLinked: true,
