@@ -23,6 +23,8 @@ from news import news_router
 import yfinance as yf
 from datetime import datetime, timezone
 from fastapi.responses import JSONResponse
+from snaptrade_client import SnapTrade
+from bson.errors import InvalidId
 
 logging.basicConfig(
     level=logging.INFO,
@@ -311,6 +313,7 @@ async def login(request: Request, user: UserLogin):
                 "email": existing_user["email"],
                 "username": existing_user["username"],
                 "user_id": str(existing_user["_id"]),
+                "snaptrade_user_secret": existing_user["snaptrade_user_secret"],
             }
         }
     )
@@ -320,6 +323,7 @@ async def login(request: Request, user: UserLogin):
             "email": existing_user["email"],
             "username": existing_user["username"],
             "user_id": str(existing_user["_id"]),
+            "snaptrade_user_secret": existing_user["snaptrade_user_secret"],
         },
     }
 
@@ -805,6 +809,109 @@ async def reset_user_password(request_data: ResetPasswordRequest):
 
     return {"message": "Password has been reset successfully."}
 
+
+
+
+snaptrade = SnapTrade(
+    consumer_key=os.getenv("SNAPTRADE_CONSUMER_KEY"),
+    client_id=os.getenv("SNAPTRADE_CLIENT_ID"),
+)
+
+@app.get("/snaptrade/link-account")
+def get_link_url(user_id: str):
+    try:
+        user = users.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found.")
+
+        if "snaptrade_user_secret" in user:
+            user_secret = user["snaptrade_user_secret"]
+        else:
+            register_response = snaptrade.authentication.register_snap_trade_user(
+                body={"userId": user_id}
+            )
+            user_secret = register_response.body["userSecret"]
+            store_user_secret(user_id, user_secret)
+
+        login_response = snaptrade.authentication.login_snap_trade_user(
+            user_id=user_id,
+            user_secret=user_secret,
+            custom_redirect="http://localhost:3000/snaptrade/callback",
+            connection_portal_version="v4"
+        )
+
+
+        return {"url": login_response.body}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@app.get("/snaptrade/holdings")
+def get_holdings(user_id: str):
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Missing user_id")
+
+    try:
+        user = users.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+    except InvalidId:
+        raise HTTPException(status_code=400, detail="Invalid user_id")
+
+    user_secret = user.get("snaptrade_user_secret")
+    if not user_secret:
+        raise HTTPException(status_code=400, detail="User has no SnapTrade secret")
+
+    try:
+        holdings = snaptrade.account_information.get_all_user_holdings(
+            query_params={"userId": user_id, "userSecret": user_secret}
+        )
+        return holdings.body
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def store_user_secret(user_id: str, user_secret: str):
+    """Store SnapTrade userSecret in MongoDB users collection."""
+    users.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"snaptrade_user_secret": user_secret}}
+    )
+
+def retrieve_user_secret_from_db(user_id: str) -> str:
+    """Retrieve SnapTrade userSecret from MongoDB."""
+    user = users.find_one({"_id": ObjectId(user_id)})
+    if not user or "snaptrade_user_secret" not in user:
+        raise Exception("SnapTrade user secret not found.")
+    return user["snaptrade_user_secret"]
+
+@app.get("/snaptrade/delete-user")
+def delete_snaptrade_user(user_id: str):
+    try:
+        deleted_response = snaptrade.authentication.delete_snap_trade_user(
+            query_params={"userId": user_id}
+        )
+
+        users.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$unset": {"snaptrade_user_secret": ""}}
+        )
+
+        return {
+            "message": f"SnapTrade user {user_id} deleted successfully.",
+            "snaptrade_response": deleted_response.body
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/snaptrade/has-user-secret", response_model=bool)
+def has_user_secret(user_id: str) -> bool:
+    """Return True if user has SnapTrade secret stored."""
+    user = users.find_one({"_id": ObjectId(user_id)})
+    return "snaptrade_user_secret" in user
 
 if __name__ == "__main__":
     import uvicorn

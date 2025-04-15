@@ -14,8 +14,9 @@ interface User {
   email: string;
   avatar: string;
   name: string;
+  snaptradeToken?: string; 
+  snaptradeLinked?: boolean; 
 }
-
 interface WatchlistItem {
   Ticker: string;
   FullName: string;
@@ -291,6 +292,8 @@ export const useStore = create<Store>((set, get) => ({
     email: "",
     avatar: "",
     name: "",
+    snaptradeToken: "",
+    snaptradeLinked: false,
   },
   setUser: (newUser) => set({ user: newUser }),
   resetUser: () =>
@@ -300,6 +303,8 @@ export const useStore = create<Store>((set, get) => ({
         email: "",
         avatar: "",
         name: "",
+        snaptradeToken: "",
+        snaptradeLinked: false,
       },
     }),
 
