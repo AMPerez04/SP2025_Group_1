@@ -13,7 +13,6 @@ export function SnapTradeLinkButton() {
 
     const res = await fetch(`${BACKEND_URL}/snaptrade/link-account?user_id=${userID}`);
     const data = await res.json();
-
     window.location.href = data.url.redirectURI;
   };
 

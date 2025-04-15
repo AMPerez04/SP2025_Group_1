@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, {useEffect} from "react";
 import { ResponsiveContainer } from "recharts";
 import AreaChart from "@/app/dashboard/components/visualizations/areachart";
 import TimePeriodSelector from "@/app/dashboard/components/visualizations/timeperiodselector";
@@ -22,9 +22,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AssetHeader from "./components/asset-header";
 import CandleChart from "./components/visualizations/candlechart";
 import { useStore } from "@/zustand/store";
+import { toast } from "sonner";
 
 export default function Page() {
   const { chartType, selectedMarket } = useStore((state) => state);
+  const setUser = useStore((state) => state.setUser);
+  const currentUser = useStore((state) => state.user);
+
+  useEffect(() => {
+    if (!currentUser?.ID) {
+        toast.error("User ID missing. Please refresh or log in again.");
+        return;
+    }
+    // Only update if not already linked
+    if (!currentUser.snaptradeLinked) {
+        toast.success("Your investment account was linked successfully!");
+        setUser({
+            ...currentUser,
+            snaptradeLinked: true,
+        });
+    }
+
+}, [currentUser, setUser]); 
 
   if (selectedMarket) {
     return <Market />;

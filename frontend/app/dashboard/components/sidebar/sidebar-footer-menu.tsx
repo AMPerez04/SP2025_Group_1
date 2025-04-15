@@ -6,7 +6,6 @@ import {
   LogOut,
   Settings,
   UserCog,
-  TriangleAlert,
 } from "lucide-react";
 import initials from "initials";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -75,11 +74,7 @@ export default function SidebarFooterMenu() {
         const data = await res.json();
   
         const shouldBeLinked = data === true;
-        toast.info(
-          shouldBeLinked
-            ? "Your investment account is linked."
-            : "Your investment account is not linked."
-        );
+ 
         setSnapTradeLinked(shouldBeLinked);
   
         if (user.snaptradeLinked !== shouldBeLinked) {
@@ -136,19 +131,7 @@ export default function SidebarFooterMenu() {
       });
     } else {
       // error toast notification: user not logged out
-      toast.error("ERROR", {
-        description: storeError,
-        style: {
-          borderLeft: "7px solid #d32f2f",
-        },
-        position: "bottom-right",
-        icon: <TriangleAlert width={30} />,
-        cancel: {
-          label: "Try again",
-          onClick: () => handleLogout(),
-        },
-        duration: 2000,
-      });
+
 
       // clear error message
       setError("");
@@ -202,13 +185,7 @@ export default function SidebarFooterMenu() {
       }
     } catch (error) {
       console.error("Error updating settings:", error);
-      toast.error("ERROR", {
-        description: "Error updating settings",
-        style: { borderLeft: "7px solid #d32f2f" },
-        position: "bottom-right",
-        icon: <TriangleAlert width={30} />,
-        duration: 2000,
-      });
+   
     }
   };
 
@@ -224,16 +201,8 @@ export default function SidebarFooterMenu() {
   return (
     <>
       <div className="px-4 pt-2 pb-1">
-        {!snaptradeLinked ? (
+        {!snaptradeLinked && (
           <SnapTradeLinkButton />
-        ) : (
-          <button
-            onClick={() => router.push("/snaptrade/callback")}
-            className="text-sm text-muted-foreground underline hover:text-blue-600 transition"
-          >
-            View your investments
-          </button>
-
         )}
       </div>
       <SidebarMenu>

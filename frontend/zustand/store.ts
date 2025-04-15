@@ -355,18 +355,22 @@ export const useStore = create<Store>((set, get) => ({
 
           for (const account of holdings) {
             // Equity/stock holdings
-            for (const pos of account.positions || []) {
-              const rawSymbol = pos.symbol?.underlying_symbol?.symbol || pos.symbol?.symbol;
-              if (rawSymbol) {
-                symbolsToAdd.add(rawSymbol);
+            if (account?.positions) {
+              for (const pos of account.positions) {
+                const rawSymbol = pos.symbol?.underlying_symbol?.symbol || pos.symbol?.symbol;
+                if (rawSymbol) {
+                  symbolsToAdd.add(rawSymbol);
+                }
               }
             }
 
             // Option holdings (extract underlying stock)
-            for (const optionPos of account.option_positions || []) {
-              const underlying = optionPos.symbol?.option_symbol?.underlying_symbol?.symbol;
-              if (underlying) {
-                symbolsToAdd.add(underlying);
+            if (account?.option_positions) {
+              for (const optionPos of account.option_positions) {
+                const underlying = optionPos.symbol?.option_symbol?.underlying_symbol?.symbol;
+                if (underlying) {
+                  symbolsToAdd.add(underlying);
+                }
               }
             }
           }
@@ -387,7 +391,7 @@ export const useStore = create<Store>((set, get) => ({
                 found.market_logo,
                 true,
               );
-              
+
             }
           }
         } catch (err) {
@@ -438,9 +442,9 @@ export const useStore = create<Store>((set, get) => ({
         }),
       });
       const data = await response.json();
-  
+
       if (data.Tickers && !skipRefresh) {
-        await get().getWatchList(ID); 
+        await get().getWatchList(ID);
       } else if (!data.Tickers) {
         throw new Error("ERROR: Unable to add ticker to watchlist");
       }
@@ -448,7 +452,7 @@ export const useStore = create<Store>((set, get) => ({
       console.error(`ERROR: Unable to add $${ticker} to watchlist:`, error);
     }
   },
-  
+
   // removes asset from user's watchlist
   removeFromWatchlist: async (ticker) => {
     try {
