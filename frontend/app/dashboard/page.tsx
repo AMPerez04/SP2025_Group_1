@@ -30,43 +30,38 @@ export default function Page() {
   const setUser = useStore((state) => state.setUser);
   const currentUser = useStore((state) => state.user);
 
-  const handleUserState = React.useCallback(() => {
+  useEffect(() => {
     if (!currentUser?.ID) {
-        toast.error("ERROR", {
-          description: "User ID missing. Please refresh or log in again.",
-          style: {
-            borderLeft: "7px solid #d32f2f",
-          },
-          position: "bottom-right",
-          icon: <TriangleAlert width={35} />,
-          duration: 2000,
-        });
-        return;
+      toast.error("ERROR", {
+        description: "User ID missing. Please refresh or log in again.",
+        style: {
+          borderLeft: "7px solid #d32f2f",
+        },
+        position: "bottom-right",
+        icon: <TriangleAlert width={35} />,
+        duration: 2000,
+      });
+      return;
     }
-    // Only update if not already linked
-    if (!currentUser.snaptradeLinked) {
-        toast(
-          "Your investment account was linked successfully!",
-          {
-            style: {
-              borderLeft: "7px solid #2d9c41",
-            },
-            position: "bottom-right",
-            icon: <DollarSign width={35} />,
-            duration: 2000,
-          }
-        );
-        
-        setUser({
-            ...currentUser,
-            snaptradeLinked: true,
-        });
+  
+    // Guard against re-setting the same value
+    if (currentUser.snaptradeLinked !== true) {
+      toast("Your investment account was linked successfully!", {
+        style: {
+          borderLeft: "7px solid #2d9c41",
+        },
+        position: "bottom-right",
+        icon: <DollarSign width={35} />,
+        duration: 2000,
+      });
+  
+      setUser({
+        ...currentUser,
+        snaptradeLinked: true,
+      });
     }
   }, [currentUser, setUser]);
-
-  useEffect(() => {
-    handleUserState();
-  }, [handleUserState]);
+  
 
   if (selectedMarket) {
     return <Market />;
