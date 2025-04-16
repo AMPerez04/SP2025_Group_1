@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { CaretSortIcon } from "@radix-ui/react-icons";
 import {
   LogOut,
   Settings,
   UserCog,
-  TriangleAlert,
 } from "lucide-react";
 import initials from "initials";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -28,6 +27,7 @@ import {
 import { useStore, BACKEND_URL } from "@/zustand/store";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { SnapTradeLinkButton } from "./snaptrade-link-button";
 
 import {
   Dialog,
@@ -49,6 +49,7 @@ export default function SidebarFooterMenu() {
   const { isMobile } = useSidebar();
   const { user, resetUser, setError, setUser } = useStore((state) => state);
   const router = useRouter();
+  const [snaptradeLinked, setSnapTradeLinked] = useState(false);
 
   // State to control the visibility of the settings modal.
   const [openSettingsModal, setOpenSettingsModal] = useState(false);
@@ -62,6 +63,35 @@ export default function SidebarFooterMenu() {
   const [newEmail, setNewEmail] = useState(user.email);
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState(""); // for password updates
+
+
+  // For checking user secret
+
+  useEffect(() => {
+    const checkSnapTradeUserSecret = async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/snaptrade/has-user-secret?user_id=${user.ID}`);
+        const data = await res.json();
+  
+        const shouldBeLinked = data === true;
+ 
+        setSnapTradeLinked(shouldBeLinked);
+  
+        if (user.snaptradeLinked !== shouldBeLinked) {
+          setUser({ ...user, snaptradeLinked: shouldBeLinked });
+        }
+      } catch (err) {
+        console.error("Failed to check SnapTrade user secret:", err);
+      }
+    };
+  
+    if (user.ID) {
+      checkSnapTradeUserSecret();
+    }
+  }, [user, setUser]); 
+  
+
+
 
   const handleLogout = async () => {
     try {
@@ -101,19 +131,7 @@ export default function SidebarFooterMenu() {
       });
     } else {
       // error toast notification: user not logged out
-      toast.error("ERROR", {
-        description: storeError,
-        style: {
-          borderLeft: "7px solid #d32f2f",
-        },
-        position: "bottom-right",
-        icon: <TriangleAlert width={30} />,
-        cancel: {
-          label: "Try again",
-          onClick: () => handleLogout(),
-        },
-        duration: 2000,
-      });
+
 
       // clear error message
       setError("");
@@ -121,73 +139,72 @@ export default function SidebarFooterMenu() {
   };
 
 
-  
-// Handle submission for updating a single field.
-const handleSave = async (e: React.FormEvent) => {
-  e.preventDefault();
-  // Build payload based on which field is being updated.
-  const payload: SettingsPayload = { password };
-  if (editingField === "username") {
-    payload.username = newUsername;
-  } else if (editingField === "email") {
-    payload.email = newEmail;
-  } else if (editingField === "password") {
-    payload.new_password = newPassword;
-  }
 
-  try {
-    const res = await fetch(`${BACKEND_URL}/update-settings`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (res.ok) {
-      toast("Updated successfully", {
-        description: "Your data has been saved",
-        style: { borderLeft: "7px solid #2d9c41" },
-        position: "bottom-right",
-        icon: <UserCog width={30} />,
-        duration: 2000,
-      });
-      // Update zustand user if username or email changed.
-      if (editingField === "username") {
-        setUser({ ...user, name: newUsername });
-      } else if (editingField === "email") {
-        setUser({ ...user, email: newEmail });
-      }
-      // For password updates, no need to update the local user.
-      // Reset editing state and clear password fields.
-      setEditingField(null);
-      setPassword("");
-      setNewPassword("");
-    } else {
-      throw new Error("Update failed");
+  // Handle submission for updating a single field.
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // Build payload based on which field is being updated.
+    const payload: SettingsPayload = { password };
+    if (editingField === "username") {
+      payload.username = newUsername;
+    } else if (editingField === "email") {
+      payload.email = newEmail;
+    } else if (editingField === "password") {
+      payload.new_password = newPassword;
     }
-  } catch (error) {
-    console.error("Error updating settings:", error);
-    toast.error("ERROR", {
-      description: "Error updating settings",
-      style: { borderLeft: "7px solid #d32f2f" },
-      position: "bottom-right",
-      icon: <TriangleAlert width={30} />,
-      duration: 2000,
-    });
-  }
-};
 
-// Reset the form and exit edit mode.
-const cancelEditing = () => {
-  setEditingField(null);
-  setPassword("");
-  setNewPassword("");
-  setNewUsername(user.name);
-  setNewEmail(user.email);
-};
+    try {
+      const res = await fetch(`${BACKEND_URL}/update-settings`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        toast("Updated successfully", {
+          description: "Your data has been saved",
+          style: { borderLeft: "7px solid #2d9c41" },
+          position: "bottom-right",
+          icon: <UserCog width={30} />,
+          duration: 2000,
+        });
+        // Update zustand user if username or email changed.
+        if (editingField === "username") {
+          setUser({ ...user, name: newUsername });
+        } else if (editingField === "email") {
+          setUser({ ...user, email: newEmail });
+        }
+        // For password updates, no need to update the local user.
+        // Reset editing state and clear password fields.
+        setEditingField(null);
+        setPassword("");
+        setNewPassword("");
+      } else {
+        throw new Error("Update failed");
+      }
+    } catch (error) {
+      console.error("Error updating settings:", error);
+   
+    }
+  };
+
+  // Reset the form and exit edit mode.
+  const cancelEditing = () => {
+    setEditingField(null);
+    setPassword("");
+    setNewPassword("");
+    setNewUsername(user.name);
+    setNewEmail(user.email);
+  };
 
   return (
     <>
+      <div className="px-4 pt-2 pb-1">
+        {!snaptradeLinked && (
+          <SnapTradeLinkButton />
+        )}
+      </div>
       <SidebarMenu>
         <SidebarMenuItem>
           <DropdownMenu>

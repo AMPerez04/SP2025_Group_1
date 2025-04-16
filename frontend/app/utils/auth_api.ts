@@ -6,7 +6,7 @@ export interface UserData {
     user_id: string;
     email: string;
     username: string;
-    // add other user properties if available
+    snaptrade_user_secret?: string; 
   };
   message: string;
 }
