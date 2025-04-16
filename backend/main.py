@@ -405,9 +405,7 @@ async def update_settings(request: Request, update: SettingsUpdateRequest):
 @app.get("/survey/sectors", response_model=list[str])
 def get_sectors():
     """returns list of all unique sectors in the assets collection"""
-
-    sectors = assets.distinct("Sector")
-    return sectors
+    return [sector for sector in assets.distinct("Sector") if sector and sector.strip()]
 
 
 class SurveySubmission(BaseModel):
