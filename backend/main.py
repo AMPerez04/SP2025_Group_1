@@ -836,7 +836,7 @@ def get_link_url(user_id: str):
         login_response = snaptrade.authentication.login_snap_trade_user(
             user_id=user_id,
             user_secret=user_secret,
-            custom_redirect="http://localhost:3000/dashboard",
+            custom_redirect="http://localhost:3000/dashboard?from=snaptrade",
             connection_portal_version="v4"
         )
 

@@ -45,13 +45,13 @@ export default function SnapTradeCallbackClient() {
 
     useEffect(() => {
         if (!currentUser?.ID) {
-            toast.error("User ID missing. Please refresh or log in again.");
+      
             return;
         }
     
         // Only update if not already linked
         if (!currentUser.snaptradeLinked) {
-            toast.success("Your investment account was linked successfully!");
+            
             setUser({
                 ...currentUser,
                 snaptradeLinked: true,

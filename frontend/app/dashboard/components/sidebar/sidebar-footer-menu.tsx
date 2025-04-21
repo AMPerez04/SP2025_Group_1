@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { CaretSortIcon } from "@radix-ui/react-icons";
 import {
   LogOut,
@@ -38,6 +38,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 
+import { DollarSign } from "lucide-react";
+
 interface SettingsPayload {
   password: string;
   username?: string;
@@ -45,11 +47,12 @@ interface SettingsPayload {
   new_password?: string;
 }
 
+
+
 export default function SidebarFooterMenu() {
   const { isMobile } = useSidebar();
-  const { user, resetUser, setError, setUser } = useStore((state) => state);
+  const { user, resetUser, setError, setUser, getWatchList } = useStore((state) => state);
   const router = useRouter();
-  const [snaptradeLinked, setSnapTradeLinked] = useState(false);
 
   // State to control the visibility of the settings modal.
   const [openSettingsModal, setOpenSettingsModal] = useState(false);
@@ -67,28 +70,79 @@ export default function SidebarFooterMenu() {
 
   // For checking user secret
 
+  function useSnaptradePolling(userId: string) {
+    const [hasSecrets, setHasSecrets] = useState(user.snaptradeLinked);
+  
+    useEffect(() => {
+      if (!userId) return;
+  
+      const checkSecret = () => {
+        fetch(`${BACKEND_URL}/snaptrade/has-user-secret?user_id=${userId}`)
+          .then(res => res.json())
+          .then((data: boolean) => {
+            setHasSecrets(data);
+          })
+          .catch(err => {
+            console.error("❌ Poll error:", err);
+          });
+      };
+      
+      // Initial check
+      checkSecret();
+  
+      // Set up polling every 30 seconds
+      const intervalId = setInterval(checkSecret, 30000);
+  
+      return () => {
+        clearInterval(intervalId);
+      };
+    }, [userId]);
+  
+    
+    return hasSecrets;
+  }
+
+  const hasSecret = useSnaptradePolling(user.ID);
+
   useEffect(() => {
-    const checkSnapTradeUserSecret = async () => {
-      try {
-        const res = await fetch(`${BACKEND_URL}/snaptrade/has-user-secret?user_id=${user.ID}`);
-        const data = await res.json();
-  
-        const shouldBeLinked = data === true;
- 
-        setSnapTradeLinked(shouldBeLinked);
-  
-        if (user.snaptradeLinked !== shouldBeLinked) {
-          setUser({ ...user, snaptradeLinked: shouldBeLinked });
-        }
-      } catch (err) {
-        console.error("Failed to check SnapTrade user secret:", err);
-      }
-    };
-  
-    if (user.ID) {
-      checkSnapTradeUserSecret();
+    if (user.snaptradeLinked !== hasSecret) {
+      setUser({
+        ...user,
+        snaptradeLinked: hasSecret,
+      });
     }
-  }, [user, setUser]); 
+  }, [hasSecret, user, setUser, getWatchList]);
+  
+  const snaptradeHandledRef = useRef(false); // 👈 this ensures it's only run once
+
+  const handleSnaptradeRedirect = useCallback(() => {
+    const url = new URL(window.location.href);
+    const from = url.searchParams.get("from");
+
+    if (from === "snaptrade" && !snaptradeHandledRef.current) {
+      snaptradeHandledRef.current = true;
+
+      toast.success("SnapTrade linked successfully", {
+        style: {
+          borderLeft: "7px solid #2d9c41",
+        },
+        position: "bottom-right",
+        icon: <DollarSign width={35} />,
+        duration: 2000,
+      });
+
+      getWatchList(user.ID);
+
+      // Optional: Clean the URL
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, [getWatchList, user.ID]);
+
+  useEffect(() => {
+    handleSnaptradeRedirect();
+  }, [handleSnaptradeRedirect]);
+
   
 
 
@@ -185,7 +239,7 @@ export default function SidebarFooterMenu() {
       }
     } catch (error) {
       console.error("Error updating settings:", error);
-   
+
     }
   };
 
@@ -201,7 +255,7 @@ export default function SidebarFooterMenu() {
   return (
     <>
       <div className="px-4 pt-2 pb-1">
-        {!snaptradeLinked && (
+        {!user.snaptradeLinked && (
           <SnapTradeLinkButton />
         )}
       </div>

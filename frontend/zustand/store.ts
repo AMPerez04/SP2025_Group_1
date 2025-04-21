@@ -204,7 +204,7 @@ interface Store {
 
   // assets for searchbar
   assets: Asset[];
-  getAssets: (searchQuery: string) => Promise<void>;
+  getAssets: (searchQuery: string) => Promise<Asset[]>;
   setAssets: (newAssets: Asset[]) => void;
 
   selectedAsset: SelectedAsset | null;
@@ -379,8 +379,13 @@ export const useStore = create<Store>((set, get) => ({
             // Skip already in tickerMap
             if (tickerMap.has(symbol)) continue;
 
-            await get().getAssets(symbol);
-            const found = get().assets.find((a) => a.ticker === symbol);
+            const assets = await get().getAssets(symbol);
+            const found = assets.find((a) => a.ticker === symbol);
+
+            console.log(assets, symbol, found);
+
+
+            
 
             if (found) {
               await get().addToWatchlist(
@@ -507,9 +512,11 @@ export const useStore = create<Store>((set, get) => ({
       );
       const data = await response.json();
       set({ assets: data });
+      return data;
     } catch (error) {
       console.error("ERROR: Unable to fetch assets:", error);
       set({ assets: [] });
+      return [];
     }
   },
 
