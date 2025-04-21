@@ -23,8 +23,15 @@ import AssetHeader from "./components/asset-header";
 import CandleChart from "./components/visualizations/candlechart";
 import { useStore } from "@/zustand/store";
 
+
 export default function Page() {
   const { chartType, selectedMarket } = useStore((state) => state);
+
+
+
+  
+
+  
 
   if (selectedMarket) {
     return <Market />;

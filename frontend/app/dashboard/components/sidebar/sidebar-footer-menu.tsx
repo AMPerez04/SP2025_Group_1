@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { CaretSortIcon } from "@radix-ui/react-icons";
 import {
   LogOut,
   Settings,
   UserCog,
-  TriangleAlert,
 } from "lucide-react";
 import initials from "initials";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -28,6 +27,7 @@ import {
 import { useStore, BACKEND_URL } from "@/zustand/store";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { SnapTradeLinkButton } from "./snaptrade-link-button";
 
 import {
   Dialog,
@@ -38,6 +38,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 
+import { DollarSign } from "lucide-react";
+
 interface SettingsPayload {
   password: string;
   username?: string;
@@ -45,9 +47,11 @@ interface SettingsPayload {
   new_password?: string;
 }
 
+
+
 export default function SidebarFooterMenu() {
   const { isMobile } = useSidebar();
-  const { user, resetUser, setError, setUser } = useStore((state) => state);
+  const { user, resetUser, setError, setUser, getWatchList } = useStore((state) => state);
   const router = useRouter();
 
   // State to control the visibility of the settings modal.
@@ -62,6 +66,86 @@ export default function SidebarFooterMenu() {
   const [newEmail, setNewEmail] = useState(user.email);
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState(""); // for password updates
+
+
+  // For checking user secret
+
+  function useSnaptradePolling(userId: string) {
+    const [hasSecrets, setHasSecrets] = useState(user.snaptradeLinked);
+  
+    useEffect(() => {
+      if (!userId) return;
+  
+      const checkSecret = () => {
+        fetch(`${BACKEND_URL}/snaptrade/has-user-secret?user_id=${userId}`)
+          .then(res => res.json())
+          .then((data: boolean) => {
+            setHasSecrets(data);
+          })
+          .catch(err => {
+            console.error("❌ Poll error:", err);
+          });
+      };
+      
+      // Initial check
+      checkSecret();
+  
+      // Set up polling every 30 seconds
+      const intervalId = setInterval(checkSecret, 30000);
+  
+      return () => {
+        clearInterval(intervalId);
+      };
+    }, [userId]);
+  
+    
+    return hasSecrets;
+  }
+
+  const hasSecret = useSnaptradePolling(user.ID);
+
+  useEffect(() => {
+    if (user.snaptradeLinked !== hasSecret) {
+      setUser({
+        ...user,
+        snaptradeLinked: hasSecret,
+      });
+    }
+  }, [hasSecret, user, setUser, getWatchList]);
+  
+  const snaptradeHandledRef = useRef(false); // 👈 this ensures it's only run once
+
+  const handleSnaptradeRedirect = useCallback(() => {
+    const url = new URL(window.location.href);
+    const from = url.searchParams.get("from");
+
+    if (from === "snaptrade" && !snaptradeHandledRef.current) {
+      snaptradeHandledRef.current = true;
+
+      toast.success("SnapTrade linked successfully", {
+        style: {
+          borderLeft: "7px solid #2d9c41",
+        },
+        position: "bottom-right",
+        icon: <DollarSign width={35} />,
+        duration: 2000,
+      });
+
+      getWatchList(user.ID);
+
+      // Optional: Clean the URL
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, [getWatchList, user.ID]);
+
+  useEffect(() => {
+    handleSnaptradeRedirect();
+  }, [handleSnaptradeRedirect]);
+
+  
+
+
 
   const handleLogout = async () => {
     try {
@@ -101,19 +185,7 @@ export default function SidebarFooterMenu() {
       });
     } else {
       // error toast notification: user not logged out
-      toast.error("ERROR", {
-        description: storeError,
-        style: {
-          borderLeft: "7px solid #d32f2f",
-        },
-        position: "bottom-right",
-        icon: <TriangleAlert width={30} />,
-        cancel: {
-          label: "Try again",
-          onClick: () => handleLogout(),
-        },
-        duration: 2000,
-      });
+
 
       // clear error message
       setError("");
@@ -121,73 +193,72 @@ export default function SidebarFooterMenu() {
   };
 
 
-  
-// Handle submission for updating a single field.
-const handleSave = async (e: React.FormEvent) => {
-  e.preventDefault();
-  // Build payload based on which field is being updated.
-  const payload: SettingsPayload = { password };
-  if (editingField === "username") {
-    payload.username = newUsername;
-  } else if (editingField === "email") {
-    payload.email = newEmail;
-  } else if (editingField === "password") {
-    payload.new_password = newPassword;
-  }
 
-  try {
-    const res = await fetch(`${BACKEND_URL}/update-settings`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (res.ok) {
-      toast("Updated successfully", {
-        description: "Your data has been saved",
-        style: { borderLeft: "7px solid #2d9c41" },
-        position: "bottom-right",
-        icon: <UserCog width={30} />,
-        duration: 2000,
-      });
-      // Update zustand user if username or email changed.
-      if (editingField === "username") {
-        setUser({ ...user, name: newUsername });
-      } else if (editingField === "email") {
-        setUser({ ...user, email: newEmail });
-      }
-      // For password updates, no need to update the local user.
-      // Reset editing state and clear password fields.
-      setEditingField(null);
-      setPassword("");
-      setNewPassword("");
-    } else {
-      throw new Error("Update failed");
+  // Handle submission for updating a single field.
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // Build payload based on which field is being updated.
+    const payload: SettingsPayload = { password };
+    if (editingField === "username") {
+      payload.username = newUsername;
+    } else if (editingField === "email") {
+      payload.email = newEmail;
+    } else if (editingField === "password") {
+      payload.new_password = newPassword;
     }
-  } catch (error) {
-    console.error("Error updating settings:", error);
-    toast.error("ERROR", {
-      description: "Error updating settings",
-      style: { borderLeft: "7px solid #d32f2f" },
-      position: "bottom-right",
-      icon: <TriangleAlert width={30} />,
-      duration: 2000,
-    });
-  }
-};
 
-// Reset the form and exit edit mode.
-const cancelEditing = () => {
-  setEditingField(null);
-  setPassword("");
-  setNewPassword("");
-  setNewUsername(user.name);
-  setNewEmail(user.email);
-};
+    try {
+      const res = await fetch(`${BACKEND_URL}/update-settings`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        toast("Updated successfully", {
+          description: "Your data has been saved",
+          style: { borderLeft: "7px solid #2d9c41" },
+          position: "bottom-right",
+          icon: <UserCog width={30} />,
+          duration: 2000,
+        });
+        // Update zustand user if username or email changed.
+        if (editingField === "username") {
+          setUser({ ...user, name: newUsername });
+        } else if (editingField === "email") {
+          setUser({ ...user, email: newEmail });
+        }
+        // For password updates, no need to update the local user.
+        // Reset editing state and clear password fields.
+        setEditingField(null);
+        setPassword("");
+        setNewPassword("");
+      } else {
+        throw new Error("Update failed");
+      }
+    } catch (error) {
+      console.error("Error updating settings:", error);
+
+    }
+  };
+
+  // Reset the form and exit edit mode.
+  const cancelEditing = () => {
+    setEditingField(null);
+    setPassword("");
+    setNewPassword("");
+    setNewUsername(user.name);
+    setNewEmail(user.email);
+  };
 
   return (
     <>
+      <div className="px-4 pt-2 pb-1">
+        {!user.snaptradeLinked && (
+          <SnapTradeLinkButton />
+        )}
+      </div>
       <SidebarMenu>
         <SidebarMenuItem>
           <DropdownMenu>

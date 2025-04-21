@@ -14,8 +14,9 @@ interface User {
   email: string;
   avatar: string;
   name: string;
+  snaptradeToken?: string;
+  snaptradeLinked?: boolean;
 }
-
 interface WatchlistItem {
   Ticker: string;
   FullName: string;
@@ -196,13 +197,14 @@ interface Store {
     fullname: string,
     icon: string,
     market_name: string,
-    market_logo: string
+    market_logo: string,
+    skipRefresh?: boolean
   ) => Promise<void>;
   removeFromWatchlist: (ticker: string) => Promise<void>;
 
   // assets for searchbar
   assets: Asset[];
-  getAssets: (searchQuery: string) => Promise<void>;
+  getAssets: (searchQuery: string) => Promise<Asset[]>;
   setAssets: (newAssets: Asset[]) => void;
 
   selectedAsset: SelectedAsset | null;
@@ -291,6 +293,8 @@ export const useStore = create<Store>((set, get) => ({
     email: "",
     avatar: "",
     name: "",
+    snaptradeToken: "",
+    snaptradeLinked: false,
   },
   setUser: (newUser) => set({ user: newUser }),
   resetUser: () =>
@@ -300,6 +304,8 @@ export const useStore = create<Store>((set, get) => ({
         email: "",
         avatar: "",
         name: "",
+        snaptradeToken: "",
+        snaptradeLinked: false,
       },
     }),
 
@@ -320,8 +326,12 @@ export const useStore = create<Store>((set, get) => ({
       });
     }
   },
+
+
   // gets user's watchlist
   getWatchList: async (ID) => {
+    const { snaptradeLinked } = get().user;
+
     try {
       const response = await fetch(`${BACKEND_URL}/watchlist/${ID}`, {
         credentials: "include",
@@ -329,33 +339,98 @@ export const useStore = create<Store>((set, get) => ({
       const data = await response.json();
       const tickers = data.Tickers || [];
 
-      tickers.sort((stock1: WatchlistItem, stock2: WatchlistItem) => {
-        if (stock1.Ticker < stock2.Ticker) return -1;
-        if (stock1.Ticker > stock2.Ticker) return 1;
-        return 0;
-      });
+      const tickerMap = new Map<string, WatchlistItem>();
+      for (const item of tickers) {
+        tickerMap.set(item.Ticker, item);
+      }
 
-      set({ watchlist: tickers });
+      if (snaptradeLinked) {
+        try {
+          const snapResponse = await fetch(`${BACKEND_URL}/snaptrade/holdings?user_id=${ID}`, {
+            credentials: "include",
+          });
+          const holdings = await snapResponse.json();
 
-      // if no asset currently selected --> select 1st asset in the watchlist
-      if (!get().selectedAsset && tickers.length > 0) {
+          const symbolsToAdd = new Set<string>();
+
+          for (const account of holdings) {
+            // Equity/stock holdings
+            if (account?.positions) {
+              for (const pos of account.positions) {
+                const rawSymbol = pos.symbol?.underlying_symbol?.symbol || pos.symbol?.symbol;
+                if (rawSymbol) {
+                  symbolsToAdd.add(rawSymbol);
+                }
+              }
+            }
+
+            // Option holdings (extract underlying stock)
+            if (account?.option_positions) {
+              for (const optionPos of account.option_positions) {
+                const underlying = optionPos.symbol?.option_symbol?.underlying_symbol?.symbol;
+                if (underlying) {
+                  symbolsToAdd.add(underlying);
+                }
+              }
+            }
+          }
+
+          for (const symbol of symbolsToAdd) {
+            // Skip already in tickerMap
+            if (tickerMap.has(symbol)) continue;
+
+            const assets = await get().getAssets(symbol);
+            const found = assets.find((a) => a.ticker === symbol);
+
+            console.log(assets, symbol, found);
+
+
+            
+
+            if (found) {
+              await get().addToWatchlist(
+                found.ticker,
+                found.full_name,
+                found.icon,
+                found.market_name,
+                found.market_logo,
+                true,
+              );
+
+            }
+          }
+        } catch (err) {
+          console.error("ERROR: Unable to fetch/process SnapTrade holdings:", err);
+        }
+      }
+
+      const finalList = Array.from(tickerMap.values()).sort((a, b) =>
+        a.Ticker.localeCompare(b.Ticker)
+      );
+      set({ watchlist: finalList });
+
+      if (!get().selectedAsset && finalList.length > 0) {
+        const first = finalList[0];
         set({
           selectedAsset: {
-            assetLogo: tickers[0].Icon,
-            companyName: tickers[0].FullName,
-            ticker: tickers[0].Ticker,
-            marketName: tickers[0].MarketName,
-            marketLogo: tickers[0].MarketLogo,
+            assetLogo: first.Icon,
+            companyName: first.FullName,
+            ticker: first.Ticker,
+            marketName: first.MarketName,
+            marketLogo: first.MarketLogo,
           },
         });
       }
     } catch (error) {
       console.error("ERROR: Unable to get watchlist:", error);
-      set({ watchlist: [] }); // if error --> display an empty watchlist
+      set({ watchlist: [] });
     }
   },
+
+
+
   // adds asset to user's watchlist
-  addToWatchlist: async (ticker, fullname, icon, market_name, market_logo) => {
+  addToWatchlist: async (ticker, fullname, icon, market_name, market_logo, skipRefresh = false) => {
     try {
       const { ID } = get().user;
       const response = await fetch(`${BACKEND_URL}/watchlist/add`, {
@@ -363,7 +438,7 @@ export const useStore = create<Store>((set, get) => ({
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          ID: ID,
+          ID,
           Ticker: ticker,
           FullName: fullname,
           Icon: icon,
@@ -373,15 +448,16 @@ export const useStore = create<Store>((set, get) => ({
       });
       const data = await response.json();
 
-      if (data.Tickers) {
+      if (data.Tickers && !skipRefresh) {
         await get().getWatchList(ID);
-      } else {
+      } else if (!data.Tickers) {
         throw new Error("ERROR: Unable to add ticker to watchlist");
       }
     } catch (error) {
       console.error(`ERROR: Unable to add $${ticker} to watchlist:`, error);
     }
   },
+
   // removes asset from user's watchlist
   removeFromWatchlist: async (ticker) => {
     try {
@@ -402,12 +478,12 @@ export const useStore = create<Store>((set, get) => ({
           set({
             selectedAsset: get()?.watchlist[0]
               ? {
-                  assetLogo: get()?.watchlist[0].Icon,
-                  companyName: get()?.watchlist[0].FullName,
-                  ticker: get()?.watchlist[0].Ticker,
-                  marketName: get()?.watchlist[0].MarketName,
-                  marketLogo: get()?.watchlist[0].MarketLogo,
-                }
+                assetLogo: get()?.watchlist[0].Icon,
+                companyName: get()?.watchlist[0].FullName,
+                ticker: get()?.watchlist[0].Ticker,
+                marketName: get()?.watchlist[0].MarketName,
+                marketLogo: get()?.watchlist[0].MarketLogo,
+              }
               : null,
           });
         }
@@ -436,9 +512,11 @@ export const useStore = create<Store>((set, get) => ({
       );
       const data = await response.json();
       set({ assets: data });
+      return data;
     } catch (error) {
       console.error("ERROR: Unable to fetch assets:", error);
       set({ assets: [] });
+      return [];
     }
   },
 
@@ -708,7 +786,7 @@ export const useStore = create<Store>((set, get) => ({
       set({ binomialTreeLoading: true });
       const response = await fetch(
         `${BACKEND_URL}/options/${ticker}/binomial-tree?` +
-          `strike=${strike}&expiration_date=${expirationDate}&option_type=${optionType}&steps=${steps}`,
+        `strike=${strike}&expiration_date=${expirationDate}&option_type=${optionType}&steps=${steps}`,
         { credentials: "include" }
       );
 
