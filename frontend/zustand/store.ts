@@ -182,6 +182,21 @@ interface NewsArticle {
   is_scrappable?: boolean;
 }
 
+
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+}
+
+interface Conversation {
+  _id: string;
+  user_id: string;
+  messages: ChatMessage[];
+  created_at: string;
+  updated_at: string;
+}
+
 interface Store {
   // user info
   user: User;
@@ -285,6 +300,17 @@ interface Store {
   newsArticles: NewsArticle[];
   newsLoading: boolean;
   fetchNewsArticles: (ticker: string) => Promise<void>;
+
+  // Chatbot state
+  activeConversation: Conversation | null;
+  conversations: Conversation[];
+  chatLoading: boolean;
+
+  // Chatbot functions
+  sendMessage: (message: string) => Promise<void>;
+  getConversations: () => Promise<void>;
+  getConversation: (conversationId: string) => Promise<void>;
+  setActiveConversation: (conversation: Conversation | null) => void;
 }
 
 export const useStore = create<Store>((set, get) => ({
@@ -385,7 +411,7 @@ export const useStore = create<Store>((set, get) => ({
             console.log(assets, symbol, found);
 
 
-            
+
 
             if (found) {
               await get().addToWatchlist(
@@ -858,5 +884,110 @@ export const useStore = create<Store>((set, get) => ({
       });
     }
   },
+
+  // Chatbot state
+  activeConversation: null,
+  conversations: [],
+  chatLoading: false,
+
+  // Send a message to the chatbot
+  sendMessage: async (message: string) => {
+    try {
+      const { user, activeConversation } = get();
+      set({ chatLoading: true });
+
+      const response = await fetch(`${BACKEND_URL}/chatbot/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          user_id: user.ID,
+          message,
+          conversation_id: activeConversation?._id
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+
+      const data = await response.json();
+
+      // If this is a new conversation, set it as active
+      if (!get().activeConversation) {
+        await get().getConversation(data.conversation_id);
+      } else {
+        const currentConversation = get().activeConversation;
+
+        // Make sure we're working with a valid conversation object
+        if (currentConversation) {
+          // Update the existing conversation with new messages
+          const updatedConversation: Conversation = {
+            _id: currentConversation._id, // Explicitly include _id
+            user_id: currentConversation.user_id, // Explicitly include user_id
+            messages: [
+              ...(currentConversation.messages || []),
+              { role: 'user', content: message, timestamp: new Date().toISOString() },
+              {
+                role: 'assistant',
+                content: data.message.content,
+                timestamp: data.message.timestamp
+              }
+            ],
+            created_at: currentConversation.created_at, // Explicitly include created_at
+            updated_at: new Date().toISOString()
+          };
+          set({ activeConversation: updatedConversation });
+        }
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+    } finally {
+      set({ chatLoading: false });
+    }
+  },
+
+  // Get all conversations for the current user
+  getConversations: async () => {
+    try {
+      const { user } = get();
+      const response = await fetch(`${BACKEND_URL}/chatbot/conversations/${user.ID}`, {
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch conversations');
+      }
+
+      const data = await response.json();
+      set({ conversations: data });
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+    }
+  },
+
+  // Get a specific conversation
+  getConversation: async (conversationId: string) => {
+    try {
+      const { user } = get();
+      const response = await fetch(`${BACKEND_URL}/chatbot/conversation/${conversationId}?user_id=${user.ID}`, {
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch conversation');
+      }
+
+      const data = await response.json();
+      set({ activeConversation: data });
+    } catch (error) {
+      console.error('Error fetching conversation:', error);
+    }
+  },
+
+  // Set the active conversation
+  setActiveConversation: (conversation) => {
+    set({ activeConversation: conversation });
+  },
 }));
-export type { OptionsData, OptionsChain, VolatilitySurface, BinomialTree };
+export type { OptionsData, OptionsChain, VolatilitySurface, BinomialTree, Conversation };

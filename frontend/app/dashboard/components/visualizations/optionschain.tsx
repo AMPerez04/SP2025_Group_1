@@ -252,8 +252,8 @@ const OptionsChainView: React.FC = () => {
           callInTheMoney
             ? "hover:bg-blue-100/80"
             : putInTheMoney
-            ? "hover:bg-blue-100/80"
-            : "hover:bg-blue-100/80"
+              ? "hover:bg-blue-100/80"
+              : "hover:bg-blue-100/80"
         );
 
         return (
@@ -267,9 +267,8 @@ const OptionsChainView: React.FC = () => {
               call?.bid ? `$${call.bid.toFixed(2)}` : "—",
               call?.ask ? `$${call.ask.toFixed(2)}` : "—",
               call
-                ? `${
-                    call.percentChange >= 0 ? "+" : ""
-                  }${call.percentChange.toFixed(2)}%`
+                ? `${call.percentChange >= 0 ? "+" : ""
+                }${call.percentChange.toFixed(2)}%`
                 : "—",
               call ? `${(call.impliedVolatility * 100).toFixed(1)}%` : "—",
             ].map((cellContent, cellIndex) => (
@@ -306,9 +305,8 @@ const OptionsChainView: React.FC = () => {
             {[
               put ? `${(put.impliedVolatility * 100).toFixed(1)}%` : "—",
               put
-                ? `${
-                    put.percentChange >= 0 ? "+" : ""
-                  }${put.percentChange.toFixed(2)}%`
+                ? `${put.percentChange >= 0 ? "+" : ""
+                }${put.percentChange.toFixed(2)}%`
                 : "—",
               put?.ask ? `$${put.ask.toFixed(2)}` : "—",
               put?.bid ? `$${put.bid.toFixed(2)}` : "—",
@@ -704,29 +702,53 @@ const OptionsChainView: React.FC = () => {
       {/* Option Details Dialog - Using a horizontal layout */}
       <Dialog open={optionDialogOpen} onOpenChange={setOptionDialogOpen}>
         {selectedOption && (
-          <DialogContent className="max-w-7xl w-[98vw] max-h-[90vh] p-0 overflow-auto">
+          <DialogContent className="max-w-7xl w-[95vw] max-h-[95vh] overflow-hidden p-0">
             <DialogHeader className="sr-only">
               <DialogTitle>
                 {selectedOptionType === "calls" ? "Call" : "Put"} Option Details
                 - Strike ${selectedOption.strike.toFixed(2)}
               </DialogTitle>
             </DialogHeader>
-            <div className="flex flex-col md:flex-row h-full">
+            <div className="flex flex-col md:flex-row h-full max-h-[calc(95vh-2rem)]">
               {/* Option Info Sidebar */}
-              <div className="w-full md:w-72 p-6 border-r bg-muted/5">
+              <div className="w-full md:w-72 p-6 border-r bg-muted/5 overflow-y-auto">
                 {/* Option Badge */}
-                <div
-                  className={cn(
-                    "px-3 py-1.5 rounded-md text-white mb-4 inline-block bg-blue-600"
-                  )}
-                >
-                  {selectedOptionType === "calls"
-                    ? "Call Option"
-                    : "Put Option"}
+                <div className="mb-4">
+                  <span className={cn(
+                    "text-sm font-medium",
+                    selectedOptionType === "calls" ? "text-emerald-600" : "text-violet-600"
+                  )}>
+                    {selectedOptionType === "calls" ? "Call" : "Put"} Option
+                  </span>
+                  <span className="mx-1 text-muted-foreground">•</span>
+                  <span className="text-sm text-muted-foreground">
+                    {selectedOptionType === "calls"
+                      ? "Right to buy shares at strike price"
+                      : "Right to sell shares at strike price"}
+                  </span>
                 </div>
 
                 {/* Key Information */}
                 <div className="space-y-4">
+                  {/*Options Guide Panel*/}
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-medium">Option Details</h3>
+                    <TooltipProvider delayDuration={300}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="rounded-full bg-muted p-1.5 cursor-help">
+                            <InfoIcon className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="left" align="start" className="max-w-sm">
+                          <p className="font-medium mb-1">Options Trading Guide:</p>
+                          <p className="mb-1">• <span className="font-semibold">Call Options</span> give you the right to buy shares at the strike price. Buy calls when you expect the price to rise.</p>
+                          <p className="mb-1">• <span className="font-semibold">Put Options</span> give you the right to sell shares at the strike price. Buy puts when you expect the price to fall.</p>
+                          <p>• <span className="font-semibold">In-the-money</span> options (highlighted in blue) have intrinsic value.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   {/* Strike Price */}
                   <div>
                     <h3 className="text-sm font-medium text-muted-foreground">
@@ -747,7 +769,7 @@ const OptionsChainView: React.FC = () => {
                       {Math.ceil(
                         (new Date(selectedDate).getTime() -
                           new Date().getTime()) /
-                          (1000 * 60 * 60 * 24)
+                        (1000 * 60 * 60 * 24)
                       )}{" "}
                       days remaining
                     </p>
@@ -769,25 +791,25 @@ const OptionsChainView: React.FC = () => {
                             ? "text-green-600"
                             : "text-red-600"
                           : optionsData.underlyingPrice < selectedOption.strike
-                          ? "text-green-600"
-                          : "text-red-600"
+                            ? "text-green-600"
+                            : "text-red-600"
                       )}
                     >
                       {selectedOptionType === "calls"
                         ? optionsData.underlyingPrice > selectedOption.strike
                           ? `$${(
-                              optionsData.underlyingPrice -
-                              selectedOption.strike
-                            ).toFixed(2)} in-the-money`
+                            optionsData.underlyingPrice -
+                            selectedOption.strike
+                          ).toFixed(2)} in-the-money`
                           : `$${(
-                              selectedOption.strike -
-                              optionsData.underlyingPrice
-                            ).toFixed(2)} out-of-the-money`
+                            selectedOption.strike -
+                            optionsData.underlyingPrice
+                          ).toFixed(2)} out-of-the-money`
                         : optionsData.underlyingPrice < selectedOption.strike
-                        ? `$${(
+                          ? `$${(
                             selectedOption.strike - optionsData.underlyingPrice
                           ).toFixed(2)} in-the-money`
-                        : `$${(
+                          : `$${(
                             optionsData.underlyingPrice - selectedOption.strike
                           ).toFixed(2)} out-of-the-money`}
                     </p>
@@ -888,7 +910,7 @@ const OptionsChainView: React.FC = () => {
 
                 <Button
                   variant="outline"
-                  className="w-full mt-6"
+                  className="w-full mt-6 bg-black hover:bg-black/20 text-white"
                   onClick={() => setOptionDialogOpen(false)}
                 >
                   Close
