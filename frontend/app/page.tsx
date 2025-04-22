@@ -9,6 +9,7 @@ import { BACKEND_URL } from "@/zustand/store";
 import { toast } from "sonner";
 import { TriangleAlert } from "lucide-react";
 
+
 export default function Page() {
   // "login" and "signup" mode for auth form.
   const [mode, setMode] = useState<"login" | "signup">("login");

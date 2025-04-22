@@ -17,6 +17,8 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { useStore } from "@/zustand/store";
+import { ChatInterface } from './components/ChatInterface';
+
 
 interface LayoutProps {
   readonly children: ReactNode;
@@ -71,6 +73,7 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </SidebarInset>
       </SidebarProvider>
+      <ChatInterface/>
     </main>
   );
 }

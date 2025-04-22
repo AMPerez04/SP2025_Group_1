@@ -13,10 +13,10 @@ interface VolatilitySurfaceChartProps {
 const VolatilitySurfaceChart: React.FC<VolatilitySurfaceChartProps> = ({ highlightStrike }) => {
   const { selectedAsset, volatilitySurface, fetchVolatilitySurface, volatilitySurfaceLoading, optionsData } = useStore();
   const [isClient, setIsClient] = useState(false);
-  
+
   // Get the current price from options data
   const currentPrice = optionsData?.underlyingPrice || 0;
-  
+
   useEffect(() => {
     setIsClient(true);
   }, []);
@@ -27,7 +27,7 @@ const VolatilitySurfaceChart: React.FC<VolatilitySurfaceChartProps> = ({ highlig
     const dateParam = optionsData?.selectedDate || undefined;
     fetchVolatilitySurface(selectedAsset.ticker, dateParam);
   }, [selectedAsset?.ticker, isClient, fetchVolatilitySurface, optionsData]);
-  
+
   if (!isClient || volatilitySurfaceLoading || !volatilitySurface) {
     return (
       <Card>
@@ -40,26 +40,26 @@ const VolatilitySurfaceChart: React.FC<VolatilitySurfaceChartProps> = ({ highlig
       </Card>
     );
   }
-  
+
   // Simple direct approach - just use what comes from the backend
   const surfaceData = volatilitySurface ? {
     ...volatilitySurface,
     type: 'surface',
     z: volatilitySurface.z.map(row => row.map(value => value === null ? 0 : value)),
-    hovertemplate: 
-    '<b>Strike</b>: %{x:.2f}<br>' +
-    '<b>Days to Expiry</b>: %{y}<br>' +
-    '<b>IV</b>: %{z:.2f}%' +
-    '<extra></extra>'
+    hovertemplate:
+      '<b>Strike</b>: %{x:.2f}<br>' +
+      '<b>Days to Expiry</b>: %{y}<br>' +
+      '<b>IV</b>: %{z:.2f}%' +
+      '<extra></extra>'
   } : null;
-  
+
   // Filter to a single slice if highlighting a specific option
-  const filteredData = (highlightStrike && optionsData?.selectedDate && surfaceData) 
+  const filteredData = (highlightStrike && optionsData?.selectedDate && surfaceData)
     ? {
-        ...surfaceData,
-      } 
+      ...surfaceData,
+    }
     : surfaceData;
-  
+
   // If we don't have data, return early
   if (!filteredData) {
     return (
@@ -73,7 +73,7 @@ const VolatilitySurfaceChart: React.FC<VolatilitySurfaceChartProps> = ({ highlig
       </Card>
     );
   }
-  
+
   // Add highlight lines
   const currentPriceLine = currentPrice ? {
     type: 'scatter3d',
@@ -81,79 +81,98 @@ const VolatilitySurfaceChart: React.FC<VolatilitySurfaceChartProps> = ({ highlig
     x: Array(filteredData.y.length).fill(currentPrice),
     y: filteredData.y,
     z: filteredData.z.map(row => {
-      const closestIndex = filteredData.x.reduce((closest, value, index) => 
+      const closestIndex = filteredData.x.reduce((closest, value, index) =>
         Math.abs(value - currentPrice) < Math.abs(filteredData.x[closest] - currentPrice) ? index : closest, 0);
       return row[closestIndex] || 0;
     }),
     line: { color: 'green', width: 6 },
     name: `Current: $${currentPrice.toFixed(2)}`,
-    hovertemplate: 
-    '<b>Current Price</b>: %{x:.2f}<br>' +
-    '<b>Days to Expiry</b>: %{y}<br>' +
-    '<b>IV</b>: %{z:.2f}%' +
-    '<extra></extra>',
+    hovertemplate:
+      '<b>Current Price</b>: %{x:.2f}<br>' +
+      '<b>Days to Expiry</b>: %{y}<br>' +
+      '<b>IV</b>: %{z:.2f}%' +
+      '<extra></extra>',
   } : null;
-  
+
   const highlightStrikeLine = highlightStrike ? {
     type: 'scatter3d',
     mode: 'lines',
     x: Array(filteredData.y.length).fill(highlightStrike),
     y: filteredData.y,
     z: filteredData.z.map(row => {
-      const closestIndex = filteredData.x.reduce((closest, value, index) => 
+      const closestIndex = filteredData.x.reduce((closest, value, index) =>
         Math.abs(value - highlightStrike) < Math.abs(filteredData.x[closest] - highlightStrike) ? index : closest, 0);
       return row[closestIndex] || 0;
     }),
     line: { color: 'red', width: 6 },
     name: `Strike: $${highlightStrike.toFixed(2)}`,
-    hovertemplate: 
-    '<b>Selected Strike</b>: %{x:.2f}<br>' +
-    '<b>Days to Expiry</b>: %{y}<br>' +
-    '<b>IV</b>: %{z:.2f}%' +
-    '<extra></extra>',
+    hovertemplate:
+      '<b>Selected Strike</b>: %{x:.2f}<br>' +
+      '<b>Days to Expiry</b>: %{y}<br>' +
+      '<b>IV</b>: %{z:.2f}%' +
+      '<extra></extra>',
   } : null;
-  
+
   // Filter out null values for the plot data
   const plotData = [
     filteredData,
     ...(currentPriceLine ? [currentPriceLine] : []),
     ...(highlightStrikeLine ? [highlightStrikeLine] : [])
   ].filter(Boolean);
-  
+
   const maxY = Math.max(...filteredData.y);
   const maxZ = Math.max(...filteredData.z.flat().filter(v => typeof v === 'number' && !isNaN(v)));
-  
+
   const layout = {
     autosize: true,
     height: 600,
     scene: {
       aspectratio: { x: 1.5, y: 1.5, z: 1 },
-      xaxis: { 
-        title: {text:'Strike Price'},
+      xaxis: {
+        title: {
+          text: 'Strike Price',
+          font: { size: 14, color: '#333' },
+          standoff: 15
+        },
         tickprefix: '$',  // Add dollar sign to each tick
         tickformat: '.2f',  // Format to 2 decimal places
         tickmode: 'auto',
-        nticks: 10  // Control number of ticks shown
+        nticks: 8,  // Control number of ticks shown
+        showgrid: true,
+        gridcolor: 'rgba(200,200,200,0.4)',
       },
-      yaxis: { 
-        title: {text:'Expiry Date'},
+      yaxis: {
+        title: {
+          text: 'Expiry Date',
+          font: { size: 14, color: '#333' },
+          standoff: 15
+        },
         tickmode: 'array',
-        tickvals: filteredData.y,  // Use the actual day values
-        ticktext: filteredData.y.map(day => `${day}`) // Format days
+        tickvals: filteredData.y,
+        ticktext: filteredData.y.map(day => `${day}`),
+        showgrid: true,
+        gridcolor: 'rgba(200,200,200,0.4)'
       },
-      zaxis: { 
-        title: {text:'Implied Volatility'},
-        ticksuffix: '%',  // Add percent sign to each tick
-        tickformat: '.1f'  // Format to 1 decimal place
+      zaxis: {
+        title: {
+          text: 'Implied Volatility',
+          font: { size: 14, color: '#333' },
+          standoff: 15
+        },
+        ticksuffix: '%',
+        tickformat: '.1f',
+        showgrid: true,
+        gridcolor: 'rgba(200,200,200,0.4)'
       },
       camera: { eye: { x: 1.8, y: 1.8, z: 1.2 } }
     },
-    margin: { l: 0, r: 0, b: 0, t: 0, pad: 0 },
+    margin: { l: 0, r: 0, b: 40, t: 0, pad: 0 }, // Added bottom margin
     showlegend: true,
     legend: {
-      x: 0.8,
-      y: 0.9,
-      bgcolor: 'rgba(255, 255, 255, 0.5)',
+      x: 0.02,  // Moved to bottom left
+      y: 0.02,
+      orientation: 'h',  // Horizontal legend
+      bgcolor: 'rgba(255, 255, 255, 0.7)',
       bordercolor: 'rgba(0, 0, 0, 0.2)',
       borderwidth: 1,
     },
