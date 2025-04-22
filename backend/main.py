@@ -19,10 +19,12 @@ import logging
 from analytics.arima_model import ForecastModelFactory, MarketCalendar, ModelConfig
 import pandas as pd
 from options import options_router
-
+from news import news_router
 import yfinance as yf
 from datetime import datetime, timezone
 from fastapi.responses import JSONResponse
+from snaptrade_client import SnapTrade
+from bson.errors import InvalidId
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,8 +42,6 @@ app.add_middleware(
     allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    
-
     allow_headers=["*"],
 )
 
@@ -56,12 +56,14 @@ app.add_middleware(
 )
 
 app.include_router(options_router)
+app.include_router(news_router)
 # MongoDB connection
 client = MongoClient(os.getenv("MONGO_URI"))
 db = client["stock_dashboard"]
 
 # Create a password hashing context (using bcrypt)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -229,7 +231,7 @@ async def remove_from_watchlist(request: WatchlistRequest):
         ticker_exists = any(
             item["Ticker"] == ticker for item in watchlist_collection.get("Tickers", [])
         )
-        
+
         if ticker_exists:
             watchlists.update_one(
                 {"_id": mongo_id},
@@ -311,6 +313,7 @@ async def login(request: Request, user: UserLogin):
                 "email": existing_user["email"],
                 "username": existing_user["username"],
                 "user_id": str(existing_user["_id"]),
+                "snaptrade_user_secret": existing_user.get("snaptrade_user_secret"),
             }
         }
     )
@@ -320,6 +323,7 @@ async def login(request: Request, user: UserLogin):
             "email": existing_user["email"],
             "username": existing_user["username"],
             "user_id": str(existing_user["_id"]),
+            "snaptrade_user_secret": existing_user.get("snaptrade_user_secret"),
         },
     }
 
@@ -461,9 +465,11 @@ async def submit_survey(request: SurveySubmission):
 
     return
 
+
 # ================================================================================================================================
 # === asset data =================================================================================================================
 # ================================================================================================================================
+
 
 @app.get("/data")
 def fetch_financial_data(ticker: str, period: str = "1y", interval: str = "1d"):
@@ -485,9 +491,11 @@ def fetch_financial_data(ticker: str, period: str = "1y", interval: str = "1d"):
         return stock_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
-    
+
+
 class QuoteRequest(BaseModel):
     ticker: str
+
 
 @app.post("/quote")
 def get_quote(request: QuoteRequest):
@@ -499,11 +507,16 @@ def get_quote(request: QuoteRequest):
         info = stock.info
 
         def format_date(epoch):
-            return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime("%b %d, %Y") if isinstance(epoch, (int, float)) else "--"
+            return (
+                datetime.fromtimestamp(epoch, tz=timezone.utc).strftime("%b %d, %Y")
+                if isinstance(epoch, (int, float))
+                else "--"
+            )
+
         def format_large_nums(val):
             if not isinstance(val, (int, float)):
                 return "--"
-            
+
             abs_val = abs(val)
             if abs_val >= 1e12:
                 return f"{val / 1e12:,.3f}T"
@@ -544,14 +557,15 @@ def get_quote(request: QuoteRequest):
                 if info.get("dividendRate") and info.get("dividendYield")
                 else "--"
             ),
-            "exDividendDate": format_date(info.get('exDividendDate')),
+            "exDividendDate": format_date(info.get("exDividendDate")),
             "targetEst": safe_format(info.get("targetMeanPrice")),
         }
 
         return quote
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+
 @app.post("/about")
 def get_about(request: QuoteRequest):
     """
@@ -562,11 +576,16 @@ def get_about(request: QuoteRequest):
         info = stock.info
 
         def format_date(epoch):
-            return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime("%B %d") if isinstance(epoch, (int, float)) else "--"
+            return (
+                datetime.fromtimestamp(epoch, tz=timezone.utc).strftime("%B %d")
+                if isinstance(epoch, (int, float))
+                else "--"
+            )
+
         def format_large_nums(val):
             if not isinstance(val, (int, float)):
                 return "--"
-            
+
             abs_val = abs(val)
             if abs_val >= 1e12:
                 return f"{val / 1e12:,.1f}T"
@@ -584,14 +603,19 @@ def get_about(request: QuoteRequest):
             "industry": info.get("industry", "--"),
             "employees": format_large_nums(info.get("fullTimeEmployees")),
             "nextFiscalYearEnd": format_date(info.get("nextFiscalYearEnd", "--")),
-            "location": f'{info.get("city")}, {info.get("state")}' if (info.get("city") and info.get("state")) else "--",
-            "leadership": info.get("companyOfficers")[0]["name"] if info.get("companyOfficers") else "--",
+            "location": f"{info.get('city')}, {info.get('state')}"
+            if (info.get("city") and info.get("state"))
+            else "--",
+            "leadership": info.get("companyOfficers")[0]["name"]
+            if info.get("companyOfficers")
+            else "--",
         }
 
         return description
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+
 @app.get("/is_market_open")
 def is_market_open():
     """
@@ -599,13 +623,16 @@ def is_market_open():
     """
     return get_market_status()
 
+
 # ================================================================================================================================
 # === /predict endpoints ========================================================================================================
 # ================================================================================================================================
 
+
 class ARIMATrainResponse(BaseModel, arbitrary_types_allowed=True):
     model: object
     stock_data: dict
+
 
 @app.post("/predict_arima")
 def predict_arima(ticker: str, period: str, interval: str) -> dict:
@@ -659,9 +686,11 @@ def predict_arima(ticker: str, period: str, interval: str) -> dict:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error {e}")
 
+
 # --------------------------
 # Forgot Password Functionality
 # --------------------------
+
 
 # Define a Pydantic model for forgot password request
 class ForgotPasswordRequest(BaseModel):
@@ -780,6 +809,109 @@ async def reset_user_password(request_data: ResetPasswordRequest):
 
     return {"message": "Password has been reset successfully."}
 
+
+
+
+snaptrade = SnapTrade(
+    consumer_key=os.getenv("SNAPTRADE_CONSUMER_KEY"),
+    client_id=os.getenv("SNAPTRADE_CLIENT_ID"),
+)
+
+@app.get("/snaptrade/link-account")
+def get_link_url(user_id: str):
+    try:
+        user = users.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found.")
+
+        if "snaptrade_user_secret" in user:
+            user_secret = user["snaptrade_user_secret"]
+        else:
+            register_response = snaptrade.authentication.register_snap_trade_user(
+                body={"userId": user_id}
+            )
+            user_secret = register_response.body["userSecret"]
+            store_user_secret(user_id, user_secret)
+
+        login_response = snaptrade.authentication.login_snap_trade_user(
+            user_id=user_id,
+            user_secret=user_secret,
+            custom_redirect="http://localhost:3000/dashboard?from=snaptrade",
+            connection_portal_version="v4"
+        )
+
+
+        return {"url": login_response.body}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@app.get("/snaptrade/holdings")
+def get_holdings(user_id: str):
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Missing user_id")
+
+    try:
+        user = users.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+    except InvalidId:
+        raise HTTPException(status_code=400, detail="Invalid user_id")
+
+    user_secret = user.get("snaptrade_user_secret")
+    if not user_secret:
+        raise HTTPException(status_code=400, detail="User has no SnapTrade secret")
+
+    try:
+        holdings = snaptrade.account_information.get_all_user_holdings(
+            query_params={"userId": user_id, "userSecret": user_secret}
+        )
+        return holdings.body
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def store_user_secret(user_id: str, user_secret: str):
+    """Store SnapTrade userSecret in MongoDB users collection."""
+    users.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"snaptrade_user_secret": user_secret}}
+    )
+
+def retrieve_user_secret_from_db(user_id: str) -> str:
+    """Retrieve SnapTrade userSecret from MongoDB."""
+    user = users.find_one({"_id": ObjectId(user_id)})
+    if not user or "snaptrade_user_secret" not in user:
+        raise Exception("SnapTrade user secret not found.")
+    return user["snaptrade_user_secret"]
+
+@app.get("/snaptrade/delete-user")
+def delete_snaptrade_user(user_id: str):
+    try:
+        deleted_response = snaptrade.authentication.delete_snap_trade_user(
+            query_params={"userId": user_id}
+        )
+
+        users.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$unset": {"snaptrade_user_secret": ""}}
+        )
+
+        return {
+            "message": f"SnapTrade user {user_id} deleted successfully.",
+            "snaptrade_response": deleted_response.body
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/snaptrade/has-user-secret", response_model=bool)
+def has_user_secret(user_id: str) -> bool:
+    """Return True if user has SnapTrade secret stored."""
+    user = users.find_one({"_id": ObjectId(user_id)})
+    return "snaptrade_user_secret" in user
 
 if __name__ == "__main__":
     import uvicorn

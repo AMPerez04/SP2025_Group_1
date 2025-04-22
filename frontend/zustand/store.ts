@@ -14,8 +14,9 @@ interface User {
   email: string;
   avatar: string;
   name: string;
+  snaptradeToken?: string;
+  snaptradeLinked?: boolean;
 }
-
 interface WatchlistItem {
   Ticker: string;
   FullName: string;
@@ -74,7 +75,7 @@ interface DescriptionData {
 }
 
 export type TimeSeriesPoint =
-  | { time: number; value: number }  // For area charts
+  | { time: number; value: number } // For area charts
   | { time: number; open: number; high: number; low: number; value: number }; // For candlestick charts
 
 export type TimeSeriesData = Record<string, TimeSeriesPoint[]>;
@@ -110,9 +111,9 @@ interface OptionsData {
 // Surface type that matches the backend PlotlySurface model
 interface VolatilitySurface {
   type: string;
-  x: number[];           // Strike prices
-  y: number[];           // Days to expiry
-  z: number[][];         // Implied Volatility grid
+  x: number[]; // Strike prices
+  y: number[]; // Days to expiry
+  z: number[][]; // Implied Volatility grid
   colorscale: string;
   showscale: boolean;
   colorbar: {
@@ -130,7 +131,6 @@ interface VolatilitySurface {
   };
   hovertemplate: string;
 }
-
 
 // Types for binomial tree visualization
 interface BinomialTreeNode {
@@ -169,6 +169,19 @@ interface BinomialTree {
   links: BinomialTreeLink[];
   parameters: BinomialTreeParams;
 }
+
+interface NewsArticle {
+  title: string;
+  publisher: string;
+  link: string;
+  published: string;
+  sentiment: number;
+  summary?: string;
+  content?: string;
+  imageUrl?: string;
+  is_scrappable?: boolean;
+}
+
 interface Store {
   // user info
   user: User;
@@ -184,19 +197,23 @@ interface Store {
     fullname: string,
     icon: string,
     market_name: string,
-    market_logo: string
+    market_logo: string,
+    skipRefresh?: boolean
   ) => Promise<void>;
   removeFromWatchlist: (ticker: string) => Promise<void>;
 
   // assets for searchbar
   assets: Asset[];
-  getAssets: (searchQuery: string) => Promise<void>;
+  getAssets: (searchQuery: string) => Promise<Asset[]>;
   setAssets: (newAssets: Asset[]) => void;
 
   selectedAsset: SelectedAsset | null;
   setSelectedAsset: (asset: SelectedAsset) => void;
   isMarketOpen: boolean;
   getMarketStatus: () => Promise<void>;
+
+  selectedMarket: string | null;
+  setSelectedMarket: (market: string | null) => void;
 
   // watchlist financial data
   financialData: TimeSeriesData;
@@ -250,19 +267,25 @@ interface Store {
   // Binomial tree
   binomialTree: BinomialTree | null;
   binomialTreeLoading: boolean;
-  
+
   // Functions
   fetchOptionsData: (ticker: string, expirationDate?: string) => Promise<void>;
-  fetchVolatilitySurface: (ticker: string, expirationDate?: string) => Promise<void>;
+  fetchVolatilitySurface: (
+    ticker: string,
+    expirationDate?: string
+  ) => Promise<void>;
   fetchBinomialTree: (
-    ticker: string, 
-    strike: number, 
-    expirationDate: string, 
+    ticker: string,
+    strike: number,
+    expirationDate: string,
     optionType?: string,
     steps?: number
   ) => Promise<void>;
-}
 
+  newsArticles: NewsArticle[];
+  newsLoading: boolean;
+  fetchNewsArticles: (ticker: string) => Promise<void>;
+}
 
 export const useStore = create<Store>((set, get) => ({
   user: {
@@ -270,6 +293,8 @@ export const useStore = create<Store>((set, get) => ({
     email: "",
     avatar: "",
     name: "",
+    snaptradeToken: "",
+    snaptradeLinked: false,
   },
   setUser: (newUser) => set({ user: newUser }),
   resetUser: () =>
@@ -279,6 +304,8 @@ export const useStore = create<Store>((set, get) => ({
         email: "",
         avatar: "",
         name: "",
+        snaptradeToken: "",
+        snaptradeLinked: false,
       },
     }),
 
@@ -299,8 +326,12 @@ export const useStore = create<Store>((set, get) => ({
       });
     }
   },
+
+
   // gets user's watchlist
   getWatchList: async (ID) => {
+    const { snaptradeLinked } = get().user;
+
     try {
       const response = await fetch(`${BACKEND_URL}/watchlist/${ID}`, {
         credentials: "include",
@@ -308,33 +339,98 @@ export const useStore = create<Store>((set, get) => ({
       const data = await response.json();
       const tickers = data.Tickers || [];
 
-      tickers.sort((stock1: WatchlistItem, stock2: WatchlistItem) => {
-        if (stock1.Ticker < stock2.Ticker) return -1;
-        if (stock1.Ticker > stock2.Ticker) return 1;
-        return 0;
-      });
+      const tickerMap = new Map<string, WatchlistItem>();
+      for (const item of tickers) {
+        tickerMap.set(item.Ticker, item);
+      }
 
-      set({ watchlist: tickers });
+      if (snaptradeLinked) {
+        try {
+          const snapResponse = await fetch(`${BACKEND_URL}/snaptrade/holdings?user_id=${ID}`, {
+            credentials: "include",
+          });
+          const holdings = await snapResponse.json();
 
-      // if no asset currently selected --> select 1st asset in the watchlist
-      if (!get().selectedAsset && tickers.length > 0) {
+          const symbolsToAdd = new Set<string>();
+
+          for (const account of holdings) {
+            // Equity/stock holdings
+            if (account?.positions) {
+              for (const pos of account.positions) {
+                const rawSymbol = pos.symbol?.underlying_symbol?.symbol || pos.symbol?.symbol;
+                if (rawSymbol) {
+                  symbolsToAdd.add(rawSymbol);
+                }
+              }
+            }
+
+            // Option holdings (extract underlying stock)
+            if (account?.option_positions) {
+              for (const optionPos of account.option_positions) {
+                const underlying = optionPos.symbol?.option_symbol?.underlying_symbol?.symbol;
+                if (underlying) {
+                  symbolsToAdd.add(underlying);
+                }
+              }
+            }
+          }
+
+          for (const symbol of symbolsToAdd) {
+            // Skip already in tickerMap
+            if (tickerMap.has(symbol)) continue;
+
+            const assets = await get().getAssets(symbol);
+            const found = assets.find((a) => a.ticker === symbol);
+
+            console.log(assets, symbol, found);
+
+
+            
+
+            if (found) {
+              await get().addToWatchlist(
+                found.ticker,
+                found.full_name,
+                found.icon,
+                found.market_name,
+                found.market_logo,
+                true,
+              );
+
+            }
+          }
+        } catch (err) {
+          console.error("ERROR: Unable to fetch/process SnapTrade holdings:", err);
+        }
+      }
+
+      const finalList = Array.from(tickerMap.values()).sort((a, b) =>
+        a.Ticker.localeCompare(b.Ticker)
+      );
+      set({ watchlist: finalList });
+
+      if (!get().selectedAsset && finalList.length > 0) {
+        const first = finalList[0];
         set({
           selectedAsset: {
-            assetLogo: tickers[0].Icon,
-            companyName: tickers[0].FullName,
-            ticker: tickers[0].Ticker,
-            marketName: tickers[0].MarketName,
-            marketLogo: tickers[0].MarketLogo,
+            assetLogo: first.Icon,
+            companyName: first.FullName,
+            ticker: first.Ticker,
+            marketName: first.MarketName,
+            marketLogo: first.MarketLogo,
           },
         });
       }
     } catch (error) {
       console.error("ERROR: Unable to get watchlist:", error);
-      set({ watchlist: [] }); // if error --> display an empty watchlist
+      set({ watchlist: [] });
     }
   },
+
+
+
   // adds asset to user's watchlist
-  addToWatchlist: async (ticker, fullname, icon, market_name, market_logo) => {
+  addToWatchlist: async (ticker, fullname, icon, market_name, market_logo, skipRefresh = false) => {
     try {
       const { ID } = get().user;
       const response = await fetch(`${BACKEND_URL}/watchlist/add`, {
@@ -342,7 +438,7 @@ export const useStore = create<Store>((set, get) => ({
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          ID: ID,
+          ID,
           Ticker: ticker,
           FullName: fullname,
           Icon: icon,
@@ -352,15 +448,16 @@ export const useStore = create<Store>((set, get) => ({
       });
       const data = await response.json();
 
-      if (data.Tickers) {
+      if (data.Tickers && !skipRefresh) {
         await get().getWatchList(ID);
-      } else {
+      } else if (!data.Tickers) {
         throw new Error("ERROR: Unable to add ticker to watchlist");
       }
     } catch (error) {
       console.error(`ERROR: Unable to add $${ticker} to watchlist:`, error);
     }
   },
+
   // removes asset from user's watchlist
   removeFromWatchlist: async (ticker) => {
     try {
@@ -407,19 +504,25 @@ export const useStore = create<Store>((set, get) => ({
   getAssets: async (searchQuery) => {
     const query = searchQuery.length < 1 ? "A" : searchQuery;
     try {
-      const response = await fetch(`${BACKEND_URL}/search?query=${query}`, {
-        credentials: "include",
-      });
+      const response = await fetch(
+        `${BACKEND_URL}/search?query=${encodeURIComponent(query)}`,
+        {
+          credentials: "include",
+        }
+      );
       const data = await response.json();
       set({ assets: data });
+      return data;
     } catch (error) {
       console.error("ERROR: Unable to fetch assets:", error);
       set({ assets: [] });
+      return [];
     }
   },
 
   selectedAsset: null,
-  setSelectedAsset: (asset) => set({ selectedAsset: asset }),
+  setSelectedAsset: (asset) =>
+    set({ selectedAsset: asset, selectedMarket: null }),
 
   isMarketOpen: false,
   getMarketStatus: async () => {
@@ -441,6 +544,10 @@ export const useStore = create<Store>((set, get) => ({
       set({ isMarketOpen: false });
     }
   },
+
+  selectedMarket: null,
+  setSelectedMarket: (market) =>
+    set({ selectedMarket: market, selectedAsset: null }),
 
   financialData: {},
   fetchFinancialData: async (
@@ -484,7 +591,6 @@ export const useStore = create<Store>((set, get) => ({
 
         return acc;
       }, {} as Record<string, { time: number; open: number; high: number; low: number; value: number }[]>);
-
 
       if (Object.keys(transformedData).length === 0) {
         throw new Error("ERROR: transformedData is empty");
@@ -612,93 +718,99 @@ export const useStore = create<Store>((set, get) => ({
   volatilitySurfaceLoading: false,
   binomialTree: null,
   binomialTreeLoading: false,
-  
+
   fetchOptionsData: async (ticker, expirationDate) => {
     try {
       set({ optionsLoading: true });
       const url = expirationDate
         ? `${BACKEND_URL}/options/${ticker}?expiration_date=${expirationDate}`
         : `${BACKEND_URL}/options/${ticker}`;
-        
+
       const response = await fetch(url, { credentials: "include" });
-      
+
       if (!response.ok) {
-        throw new Error('Failed to fetch options data');
+        throw new Error("Failed to fetch options data");
       }
-      
+
       const data = await response.json();
       set({ optionsData: data, optionsLoading: false });
     } catch (error) {
-      console.error('Error fetching options data:', error);
-      set({ 
-        optionsLoading: false, 
+      console.error("Error fetching options data:", error);
+      set({
+        optionsLoading: false,
         optionsData: null,
-        errorMessage: `Failed to fetch options data for ${ticker}`
+        errorMessage: `Failed to fetch options data for ${ticker}`,
       });
     }
   },
-  
+
   fetchVolatilitySurface: async (ticker: string, expirationDate?: string) => {
     try {
       set({ volatilitySurfaceLoading: true });
-      
-      const url = expirationDate 
+
+      const url = expirationDate
         ? `${BACKEND_URL}/options/${ticker}/volatility-surface?expiration_date=${expirationDate}`
         : `${BACKEND_URL}/options/${ticker}/volatility-surface`;
-        
+
       const response = await fetch(url, { credentials: "include" });
-      
+
       if (!response.ok) {
-        throw new Error('Failed to fetch volatility surface data');
+        throw new Error("Failed to fetch volatility surface data");
       }
-      
+
       const data = await response.json();
       set({ volatilitySurface: data, volatilitySurfaceLoading: false });
-      
+
       // If we don't already have options data (which includes the price),
       // fetch that too so we have the current price
       if (!get().optionsData) {
         get().fetchOptionsData(ticker);
       }
     } catch (error) {
-      console.error('Error fetching volatility surface:', error);
-      set({ 
-        volatilitySurfaceLoading: false, 
-        volatilitySurface: null
+      console.error("Error fetching volatility surface:", error);
+      set({
+        volatilitySurfaceLoading: false,
+        volatilitySurface: null,
       });
     }
   },
-  
-  fetchBinomialTree: async (ticker, strike, expirationDate, optionType = 'call', steps = 5) => {
+
+  fetchBinomialTree: async (
+    ticker,
+    strike,
+    expirationDate,
+    optionType = "call",
+    steps = 5
+  ) => {
     try {
       set({ binomialTreeLoading: true });
       const response = await fetch(
-        `${BACKEND_URL}/options/${ticker}/binomial-tree?` + 
-        `strike=${strike}&expiration_date=${expirationDate}&option_type=${optionType}&steps=${steps}`, 
+        `${BACKEND_URL}/options/${ticker}/binomial-tree?` +
+        `strike=${strike}&expiration_date=${expirationDate}&option_type=${optionType}&steps=${steps}`,
         { credentials: "include" }
       );
-      
+
       if (!response.ok) {
-        throw new Error('Failed to fetch binomial tree data');
+        throw new Error("Failed to fetch binomial tree data");
       }
-      
+
       const data = await response.json();
       set({ binomialTree: data, binomialTreeLoading: false });
     } catch (error) {
-      console.error('Error fetching binomial tree:', error);
-      set({ 
-        binomialTreeLoading: false, 
-        binomialTree: null
+      console.error("Error fetching binomial tree:", error);
+      set({
+        binomialTreeLoading: false,
+        binomialTree: null,
       });
     }
   },
-  
+
   errorMessage: "",
   setError: (errorMessage) => set({ errorMessage }),
 
   chartType: "area", // default to "area" chart
   setChartType: (chartType: "area" | "candle") => set({ chartType }),
-  
+
   // Technical Indicators State for Overlays
   technicalIndicators: {
     sma: false,
@@ -722,5 +834,29 @@ export const useStore = create<Store>((set, get) => ({
         bb: false,
       },
     }),
+  newsArticles: [],
+  newsLoading: false,
+  fetchNewsArticles: async (ticker) => {
+    try {
+      set({ newsLoading: true });
+      const response = await fetch(`${BACKEND_URL}/news/${ticker}`, {
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch news");
+      }
+
+      const data = await response.json();
+      set({ newsArticles: data, newsLoading: false });
+    } catch (error) {
+      console.error("Error fetching news:", error);
+      set({
+        newsLoading: false,
+        newsArticles: [],
+        errorMessage: `Failed to fetch news for ${ticker}`,
+      });
+    }
+  },
 }));
 export type { OptionsData, OptionsChain, VolatilitySurface, BinomialTree };
