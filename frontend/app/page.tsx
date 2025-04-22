@@ -9,6 +9,7 @@ import { BACKEND_URL } from "@/zustand/store";
 import { toast } from "sonner";
 import { TriangleAlert } from "lucide-react";
 
+
 export default function Page() {
   // "login" and "signup" mode for auth form.
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -39,6 +40,15 @@ export default function Page() {
         });
         const data = await res.json();
         if (data.user) {
+          // Set Zustand state using backend session info
+          
+          setUser({
+            ID: data.user.user_id,
+            email: data.user.email,
+            name: data.user.username,
+            avatar: "",
+            snaptradeLinked: !!data.user.snaptrade_user_secret, // or other flag
+          });
           router.push("/dashboard");
         }
       } catch (err) {
@@ -121,6 +131,7 @@ export default function Page() {
           email: data.user.email,
           name: data.user.username,
           avatar: "", // add an avatar URL if available
+          snaptradeLinked: !!data.user.snaptrade_user_secret,
         });
         router.push("/dashboard");
       } catch (err: unknown) {
@@ -149,6 +160,7 @@ export default function Page() {
           email: data.user.email,
           name: data.user.username,
           avatar: "",
+          
         });
         router.push("/survey");
       } catch (err: unknown) {

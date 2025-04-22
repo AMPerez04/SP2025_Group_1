@@ -7,15 +7,16 @@ import {
   Interval,
 } from "../lib/utils";
 
-// export const BACKEND_URL = "http://localhost:8080/api";
 export const BACKEND_URL = "http://localhost:8000";
+
 interface User {
   ID: string;
   email: string;
   avatar: string;
   name: string;
+  snaptradeToken?: string;
+  snaptradeLinked?: boolean;
 }
-
 interface WatchlistItem {
   Ticker: string;
   FullName: string;
@@ -191,6 +192,37 @@ interface NewsSummary {
   };
   sentiment_label: string;
 }
+
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+}
+
+interface Conversation {
+  _id: string;
+  user_id: string;
+  messages: ChatMessage[];
+  created_at: string;
+  updated_at: string;
+}
+
+
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+}
+
+interface Conversation {
+  _id: string;
+  user_id: string;
+  messages: ChatMessage[];
+  created_at: string;
+  updated_at: string;
+}
+
+
 interface Store {
   // user info
   user: User;
@@ -206,19 +238,23 @@ interface Store {
     fullname: string,
     icon: string,
     market_name: string,
-    market_logo: string
+    market_logo: string,
+    skipRefresh?: boolean
   ) => Promise<void>;
   removeFromWatchlist: (ticker: string) => Promise<void>;
 
   // assets for searchbar
   assets: Asset[];
-  getAssets: (searchQuery: string) => Promise<void>;
+  getAssets: (searchQuery: string) => Promise<Asset[]>;
   setAssets: (newAssets: Asset[]) => void;
 
   selectedAsset: SelectedAsset | null;
   setSelectedAsset: (asset: SelectedAsset) => void;
   isMarketOpen: boolean;
   getMarketStatus: () => Promise<void>;
+
+  selectedMarket: string | null;
+  setSelectedMarket: (market: string | null) => void;
 
   // watchlist financial data
   financialData: TimeSeriesData;
@@ -291,6 +327,16 @@ interface Store {
   newsSummary: NewsSummary | null;
   newsLoading: boolean;
   fetchNewsArticles: (ticker: string) => Promise<void>;
+  // Chatbot state
+  activeConversation: Conversation | null;
+  conversations: Conversation[];
+  chatLoading: boolean;
+
+  // Chatbot functions
+  sendMessage: (message: string) => Promise<void>;
+  getConversations: () => Promise<void>;
+  getConversation: (conversationId: string) => Promise<void>;
+  setActiveConversation: (conversation: Conversation | null) => void;
 }
 
 export const useStore = create<Store>((set, get) => ({
@@ -299,6 +345,8 @@ export const useStore = create<Store>((set, get) => ({
     email: "",
     avatar: "",
     name: "",
+    snaptradeToken: "",
+    snaptradeLinked: false,
   },
   setUser: (newUser) => set({ user: newUser }),
   resetUser: () =>
@@ -308,6 +356,8 @@ export const useStore = create<Store>((set, get) => ({
         email: "",
         avatar: "",
         name: "",
+        snaptradeToken: "",
+        snaptradeLinked: false,
       },
     }),
 
@@ -328,8 +378,12 @@ export const useStore = create<Store>((set, get) => ({
       });
     }
   },
+
+
   // gets user's watchlist
   getWatchList: async (ID) => {
+    const { snaptradeLinked } = get().user;
+
     try {
       const response = await fetch(`${BACKEND_URL}/watchlist/${ID}`, {
         credentials: "include",
@@ -337,33 +391,98 @@ export const useStore = create<Store>((set, get) => ({
       const data = await response.json();
       const tickers = data.Tickers || [];
 
-      tickers.sort((stock1: WatchlistItem, stock2: WatchlistItem) => {
-        if (stock1.Ticker < stock2.Ticker) return -1;
-        if (stock1.Ticker > stock2.Ticker) return 1;
-        return 0;
-      });
+      const tickerMap = new Map<string, WatchlistItem>();
+      for (const item of tickers) {
+        tickerMap.set(item.Ticker, item);
+      }
 
-      set({ watchlist: tickers });
+      if (snaptradeLinked) {
+        try {
+          const snapResponse = await fetch(`${BACKEND_URL}/snaptrade/holdings?user_id=${ID}`, {
+            credentials: "include",
+          });
+          const holdings = await snapResponse.json();
 
-      // if no asset currently selected --> select 1st asset in the watchlist
-      if (!get().selectedAsset && tickers.length > 0) {
+          const symbolsToAdd = new Set<string>();
+
+          for (const account of holdings) {
+            // Equity/stock holdings
+            if (account?.positions) {
+              for (const pos of account.positions) {
+                const rawSymbol = pos.symbol?.underlying_symbol?.symbol || pos.symbol?.symbol;
+                if (rawSymbol) {
+                  symbolsToAdd.add(rawSymbol);
+                }
+              }
+            }
+
+            // Option holdings (extract underlying stock)
+            if (account?.option_positions) {
+              for (const optionPos of account.option_positions) {
+                const underlying = optionPos.symbol?.option_symbol?.underlying_symbol?.symbol;
+                if (underlying) {
+                  symbolsToAdd.add(underlying);
+                }
+              }
+            }
+          }
+
+          for (const symbol of symbolsToAdd) {
+            // Skip already in tickerMap
+            if (tickerMap.has(symbol)) continue;
+
+            const assets = await get().getAssets(symbol);
+            const found = assets.find((a) => a.ticker === symbol);
+
+            console.log(assets, symbol, found);
+
+
+
+
+            if (found) {
+              await get().addToWatchlist(
+                found.ticker,
+                found.full_name,
+                found.icon,
+                found.market_name,
+                found.market_logo,
+                true,
+              );
+
+            }
+          }
+        } catch (err) {
+          console.error("ERROR: Unable to fetch/process SnapTrade holdings:", err);
+        }
+      }
+
+      const finalList = Array.from(tickerMap.values()).sort((a, b) =>
+        a.Ticker.localeCompare(b.Ticker)
+      );
+      set({ watchlist: finalList });
+
+      if (!get().selectedAsset && finalList.length > 0) {
+        const first = finalList[0];
         set({
           selectedAsset: {
-            assetLogo: tickers[0].Icon,
-            companyName: tickers[0].FullName,
-            ticker: tickers[0].Ticker,
-            marketName: tickers[0].MarketName,
-            marketLogo: tickers[0].MarketLogo,
+            assetLogo: first.Icon,
+            companyName: first.FullName,
+            ticker: first.Ticker,
+            marketName: first.MarketName,
+            marketLogo: first.MarketLogo,
           },
         });
       }
     } catch (error) {
       console.error("ERROR: Unable to get watchlist:", error);
-      set({ watchlist: [] }); // if error --> display an empty watchlist
+      set({ watchlist: [] });
     }
   },
+
+
+
   // adds asset to user's watchlist
-  addToWatchlist: async (ticker, fullname, icon, market_name, market_logo) => {
+  addToWatchlist: async (ticker, fullname, icon, market_name, market_logo, skipRefresh = false) => {
     try {
       const { ID } = get().user;
       const response = await fetch(`${BACKEND_URL}/watchlist/add`, {
@@ -371,7 +490,7 @@ export const useStore = create<Store>((set, get) => ({
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          ID: ID,
+          ID,
           Ticker: ticker,
           FullName: fullname,
           Icon: icon,
@@ -381,15 +500,16 @@ export const useStore = create<Store>((set, get) => ({
       });
       const data = await response.json();
 
-      if (data.Tickers) {
+      if (data.Tickers && !skipRefresh) {
         await get().getWatchList(ID);
-      } else {
+      } else if (!data.Tickers) {
         throw new Error("ERROR: Unable to add ticker to watchlist");
       }
     } catch (error) {
       console.error(`ERROR: Unable to add $${ticker} to watchlist:`, error);
     }
   },
+
   // removes asset from user's watchlist
   removeFromWatchlist: async (ticker) => {
     try {
@@ -444,14 +564,17 @@ export const useStore = create<Store>((set, get) => ({
       );
       const data = await response.json();
       set({ assets: data });
+      return data;
     } catch (error) {
       console.error("ERROR: Unable to fetch assets:", error);
       set({ assets: [] });
+      return [];
     }
   },
 
   selectedAsset: null,
-  setSelectedAsset: (asset) => set({ selectedAsset: asset }),
+  setSelectedAsset: (asset) =>
+    set({ selectedAsset: asset, selectedMarket: null }),
 
   isMarketOpen: false,
   getMarketStatus: async () => {
@@ -473,6 +596,10 @@ export const useStore = create<Store>((set, get) => ({
       set({ isMarketOpen: false });
     }
   },
+
+  selectedMarket: null,
+  setSelectedMarket: (market) =>
+    set({ selectedMarket: market, selectedAsset: null }),
 
   financialData: {},
   fetchFinancialData: async (
@@ -796,5 +923,110 @@ export const useStore = create<Store>((set, get) => ({
   },
 
 
+
+  // Chatbot state
+  activeConversation: null,
+  conversations: [],
+  chatLoading: false,
+
+  // Send a message to the chatbot
+  sendMessage: async (message: string) => {
+    try {
+      const { user, activeConversation } = get();
+      set({ chatLoading: true });
+
+      const response = await fetch(`${BACKEND_URL}/chatbot/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          user_id: user.ID,
+          message,
+          conversation_id: activeConversation?._id
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+
+      const data = await response.json();
+
+      // If this is a new conversation, set it as active
+      if (!get().activeConversation) {
+        await get().getConversation(data.conversation_id);
+      } else {
+        const currentConversation = get().activeConversation;
+
+        // Make sure we're working with a valid conversation object
+        if (currentConversation) {
+          // Update the existing conversation with new messages
+          const updatedConversation: Conversation = {
+            _id: currentConversation._id, // Explicitly include _id
+            user_id: currentConversation.user_id, // Explicitly include user_id
+            messages: [
+              ...(currentConversation.messages || []),
+              { role: 'user', content: message, timestamp: new Date().toISOString() },
+              {
+                role: 'assistant',
+                content: data.message.content,
+                timestamp: data.message.timestamp
+              }
+            ],
+            created_at: currentConversation.created_at, // Explicitly include created_at
+            updated_at: new Date().toISOString()
+          };
+          set({ activeConversation: updatedConversation });
+        }
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+    } finally {
+      set({ chatLoading: false });
+    }
+  },
+
+  // Get all conversations for the current user
+  getConversations: async () => {
+    try {
+      const { user } = get();
+      const response = await fetch(`${BACKEND_URL}/chatbot/conversations/${user.ID}`, {
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch conversations');
+      }
+
+      const data = await response.json();
+      set({ conversations: data });
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+    }
+  },
+
+  // Get a specific conversation
+  getConversation: async (conversationId: string) => {
+    try {
+      const { user } = get();
+      const response = await fetch(`${BACKEND_URL}/chatbot/conversation/${conversationId}?user_id=${user.ID}`, {
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch conversation');
+      }
+
+      const data = await response.json();
+      set({ activeConversation: data });
+    } catch (error) {
+      console.error('Error fetching conversation:', error);
+    }
+  },
+
+  // Set the active conversation
+  setActiveConversation: (conversation) => {
+    set({ activeConversation: conversation });
+  },
 }));
-export type { OptionsData, OptionsChain, VolatilitySurface, BinomialTree };
+export type { OptionsData, OptionsChain, VolatilitySurface, BinomialTree, Conversation };

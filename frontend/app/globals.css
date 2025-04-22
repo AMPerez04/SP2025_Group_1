@@ -71,6 +71,7 @@
   margin-left: 15px;
 }
 
-#tv-attr-logo {
+#tv-attr-logo,
+.tradingview-widget-copyright {
   display: none !important;
 }

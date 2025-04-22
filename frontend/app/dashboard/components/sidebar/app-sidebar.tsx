@@ -23,7 +23,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     if (user.ID) {
       getWatchList(user.ID);
     }
-  }, [getWatchList, user.ID]);
+  }, [getWatchList, user.ID, user.snaptradeLinked]);
 
   return (
     <Sidebar collapsible="icon" {...props}>
