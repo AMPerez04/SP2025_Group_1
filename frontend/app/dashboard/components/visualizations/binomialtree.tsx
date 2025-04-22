@@ -141,7 +141,6 @@ const BinomialTree: React.FC<BinomialTreeProps> = ({
       .attr("class", "tree-node")
       .attr("transform", d => {
         const x = xScale(d.level);
-        const maxNodesAtLevel = d.level + 1;
         const levelCenter = innerHeight / 2;
         const y = levelCenter - (d.position - d.level / 2) * nodeSpacing * 2; 
         return `translate(${x}, ${y})`;

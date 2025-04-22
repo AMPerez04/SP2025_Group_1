@@ -25,6 +25,8 @@ from datetime import datetime, timezone
 from fastapi.responses import JSONResponse
 from snaptrade_client import SnapTrade
 from bson.errors import InvalidId
+from chatbot import chatbot_router
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -57,6 +59,7 @@ app.add_middleware(
 
 app.include_router(options_router)
 app.include_router(news_router)
+app.include_router(chatbot_router)
 # MongoDB connection
 client = MongoClient(os.getenv("MONGO_URI"))
 db = client["stock_dashboard"]
