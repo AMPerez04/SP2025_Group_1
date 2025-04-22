@@ -181,6 +181,16 @@ interface NewsArticle {
   is_scrappable?: boolean;
 }
 
+interface NewsSummary {
+  summary: string;
+  overall_sentiment: number;
+  sentiment_breakdown: {
+    positive: number;
+    neutral: number;
+    negative: number;
+  };
+  sentiment_label: string;
+}
 interface Store {
   // user info
   user: User;
@@ -278,9 +288,9 @@ interface Store {
   ) => Promise<void>;
 
   newsArticles: NewsArticle[];
+  newsSummary: NewsSummary | null;
   newsLoading: boolean;
   fetchNewsArticles: (ticker: string) => Promise<void>;
-
 }
 
 export const useStore = create<Store>((set, get) => ({
@@ -400,12 +410,12 @@ export const useStore = create<Store>((set, get) => ({
           set({
             selectedAsset: get()?.watchlist[0]
               ? {
-                  assetLogo: get()?.watchlist[0].Icon,
-                  companyName: get()?.watchlist[0].FullName,
-                  ticker: get()?.watchlist[0].Ticker,
-                  marketName: get()?.watchlist[0].MarketName,
-                  marketLogo: get()?.watchlist[0].MarketLogo,
-                }
+                assetLogo: get()?.watchlist[0].Icon,
+                companyName: get()?.watchlist[0].FullName,
+                ticker: get()?.watchlist[0].Ticker,
+                marketName: get()?.watchlist[0].MarketName,
+                marketLogo: get()?.watchlist[0].MarketLogo,
+              }
               : null,
           });
         }
@@ -701,7 +711,7 @@ export const useStore = create<Store>((set, get) => ({
       set({ binomialTreeLoading: true });
       const response = await fetch(
         `${BACKEND_URL}/options/${ticker}/binomial-tree?` +
-          `strike=${strike}&expiration_date=${expirationDate}&option_type=${optionType}&steps=${steps}`,
+        `strike=${strike}&expiration_date=${expirationDate}&option_type=${optionType}&steps=${steps}`,
         { credentials: "include" }
       );
 
@@ -749,29 +759,42 @@ export const useStore = create<Store>((set, get) => ({
         bb: false,
       },
     }),
-    newsArticles: [],
-newsLoading: false,
-fetchNewsArticles: async (ticker) => {
-  try {
-    set({ newsLoading: true });
-    const response = await fetch(`${BACKEND_URL}/news/${ticker}`, {
-      credentials: "include",
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch news');
+  newsArticles: [],
+  newsLoading: false,
+  newsSummary: null,
+  fetchNewsArticles: async (ticker) => {
+    try {
+      set({ newsLoading: true });
+      const response = await fetch(`${BACKEND_URL}/news/${ticker}`, {
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch news');
+      }
+
+      const data = await response.json();
+      set({
+        newsArticles: data.articles,
+        newsSummary: {
+          summary: data.summary,
+          overall_sentiment: data.overall_sentiment,
+          sentiment_breakdown: data.sentiment_breakdown,
+          sentiment_label: data.sentiment_label
+        },
+        newsLoading: false
+      });
+    } catch (error) {
+      console.error('Error fetching news:', error);
+      set({
+        newsLoading: false,
+        newsArticles: [],
+        newsSummary: null,
+        errorMessage: `Failed to fetch news for ${ticker}`
+      });
     }
-    
-    const data = await response.json();
-    set({ newsArticles: data, newsLoading: false });
-  } catch (error) {
-    console.error('Error fetching news:', error);
-    set({ 
-      newsLoading: false, 
-      newsArticles: [],
-      errorMessage: `Failed to fetch news for ${ticker}`
-    });
-  }
-},
+  },
+
+
 }));
 export type { OptionsData, OptionsChain, VolatilitySurface, BinomialTree };

@@ -2,7 +2,7 @@ from textblob import TextBlob
 import yfinance as yf
 from datetime import datetime, timezone
 import pytz
-from typing import List, Optional, Set
+from typing import List, Optional, Set, Dict
 import re
 import requests
 from bs4 import BeautifulSoup
@@ -48,11 +48,21 @@ class NewsArticle(BaseModel):
     link: str
     published: str
     sentiment: float  # -1 to 1 scale
-    sentiment_details: Optional[dict] = None  # Add this line to store raw FinBERT scores
+    sentiment_details: Optional[dict] = (
+        None  # Add this line to store raw FinBERT scores
+    )
     summary: Optional[str] = None
     content: Optional[str] = None
     imageUrl: Optional[str] = None
     is_scrappable: bool = False
+
+
+class NewsSummaryResponse(BaseModel):
+    articles: List[NewsArticle]
+    summary: str
+    overall_sentiment: float
+    sentiment_breakdown: Dict[str, float]
+    sentiment_label: str
 
 
 def is_scrappable(url: str) -> bool:
@@ -264,7 +274,6 @@ async def get_news_sentiment(
                 sentiment_scores = analyze_sentiment_finbert(text_for_analysis)
                 sentiment = sentiment_scores["positive"] - sentiment_scores["negative"]
 
-
                 # Initialize article with basic data
                 article = NewsArticle(
                     title=title,
@@ -295,7 +304,10 @@ async def get_news_sentiment(
                             # Update sentiment with full content if available
                             full_text = f"{title} {summary} {content_text}"
                             sentiment_scores = analyze_sentiment_finbert(full_text)
-                            article.sentiment = sentiment_scores["positive"] - sentiment_scores["negative"]
+                            article.sentiment = (
+                                sentiment_scores["positive"]
+                                - sentiment_scores["negative"]
+                            )
 
                 articles.append(article)
             except Exception as e:
@@ -314,7 +326,49 @@ async def get_news_sentiment(
                 f"Successful={scraping_stats['successful']}"
             )
 
-        return articles
+        if articles:
+            overall_sentiment = sum(article.sentiment for article in articles) / len(
+                articles
+            )
+
+            # Count sentiment categories
+            sentiment_breakdown = {
+                "positive": len([a for a in articles if a.sentiment > 0.1]),
+                "neutral": len([a for a in articles if -0.1 <= a.sentiment <= 0.1]),
+                "negative": len([a for a in articles if a.sentiment < -0.1]),
+            }
+
+            # Determine overall sentiment label
+            if overall_sentiment > 0.3:
+                sentiment_label = "Bullish"
+            elif overall_sentiment > 0.1:
+                sentiment_label = "Somewhat Bullish"
+            elif overall_sentiment > -0.1:
+                sentiment_label = "Neutral"
+            elif overall_sentiment > -0.3:
+                sentiment_label = "Somewhat Bearish"
+            else:
+                sentiment_label = "Bearish"
+
+            # Generate a summary from headlines (simplified approach)
+            headlines = [a.title for a in articles[:5]]
+            summary = (
+                f"Recent news for {ticker} shows {sentiment_label.lower()} sentiment. "
+                + f"Key topics include {', '.join(h.split(' - ')[0] for h in headlines[:3])}."
+            )
+        else:
+            overall_sentiment = 0
+            sentiment_breakdown = {"positive": 0, "neutral": 0, "negative": 0}
+            sentiment_label = "No Data"
+            summary = f"No recent news found for {ticker}."
+
+        return NewsSummaryResponse(
+            articles=articles,
+            summary=summary,
+            overall_sentiment=overall_sentiment,
+            sentiment_breakdown=sentiment_breakdown,
+            sentiment_label=sentiment_label,
+        )
     except Exception as e:
         logger.error(f"Error fetching news for {ticker}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to fetch news: {str(e)}")
@@ -322,11 +376,15 @@ async def get_news_sentiment(
 
 def analyze_sentiment_finbert(text):
     """Analyze sentiment using FinBERT."""
-    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
+    inputs = tokenizer(
+        text, return_tensors="pt", truncation=True, padding=True, max_length=512
+    )
     outputs = model(**inputs)
     probs = F.softmax(outputs.logits, dim=-1)  # Convert logits to probabilities
 
     sentiment_labels = ["negative", "neutral", "positive"]
-    sentiment_scores = {sentiment_labels[i]: probs[0][i].item() for i in range(len(sentiment_labels))}
+    sentiment_scores = {
+        sentiment_labels[i]: probs[0][i].item() for i in range(len(sentiment_labels))
+    }
 
     return sentiment_scores

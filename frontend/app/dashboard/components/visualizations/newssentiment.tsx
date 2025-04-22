@@ -5,6 +5,7 @@ import { useStore } from '@/zustand/store';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ExternalLink, Newspaper, Clock, User } from 'lucide-react';
 import Image from 'next/image';
+import NewsSummaryCard from "./newssummary"
 
 // Helper function to get sentiment class based on score
 const getSentimentClass = (sentiment: number) => {
@@ -69,6 +70,7 @@ const NewsSentiment: React.FC = () => {
   
   return (
     <div className="space-y-6">
+      <NewsSummaryCard />
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Latest News for {selectedAsset.ticker}</h2>
       </div>
