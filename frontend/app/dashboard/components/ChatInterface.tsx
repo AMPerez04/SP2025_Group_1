@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { BotIcon, SendIcon, XIcon, HistoryIcon, MessageCircleIcon } from 'lucide-react';
+import { SendIcon, XIcon, HistoryIcon, MessageCircleIcon } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -10,6 +10,10 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger, Drawer
 import { useStore, Conversation } from "@/zustand/store";
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import ReactMarkdown from 'react-markdown';
+import { Badge } from "@/components/ui/badge";
+import Image from "next/image";
+
 
 export function ChatInterface() {
   const [isOpen, setIsOpen] = useState(false);
@@ -26,7 +30,10 @@ export function ChatInterface() {
     sendMessage: storeSendMessage,
     getConversations,
     getConversation,
-    setActiveConversation
+    setActiveConversation,
+    selectedAsset,
+    quoteData,
+    technicalIndicators
   } = useStore();
 
   // Scroll to bottom of messages
@@ -56,7 +63,36 @@ export function ChatInterface() {
     if (!message.trim() || !user.ID) return;
     
     try {
-      await storeSendMessage(message);
+      // Get current stock context if available
+      let contextualMessage = message;
+      
+      // Add context about what user is viewing if they're looking at a stock
+      if (selectedAsset) {
+        const context = `I'm currently looking at ${selectedAsset.ticker} (${selectedAsset.companyName}) data.`;
+        const enabledIndicators = Object.entries(technicalIndicators)
+  .filter(([, enabled]) => enabled)  // Remove the underscore
+  .map(([name]) => name.toUpperCase())
+  .join(', ');
+
+          
+        let contextDetails = context;
+        
+        if (enabledIndicators) {
+          contextDetails += ` I have these technical indicators enabled: ${enabledIndicators}.`;
+        }
+        
+        if (quoteData) {
+            contextDetails += ` Market data: Previous close: ${quoteData.previousClose}, ` +
+                              `Open: ${quoteData.open}, ` +
+                              `Bid: ${quoteData.bid}, ` + 
+                              `Ask: ${quoteData.ask}`;
+        }
+        
+        // Append context to user's message
+        contextualMessage = `${message}\n\nContext: ${contextDetails}`;
+      }
+      
+      await storeSendMessage(contextualMessage);
       setMessage('');
     } catch (error) {
       toast.error(`Failed to send message: ${error}`);
@@ -73,32 +109,35 @@ export function ChatInterface() {
 
   const formatTimestamp = (timestamp: string) => {
     try {
-        timestamp = format(new Date(timestamp), 'MMM d, h:mm a');
-        if (!timestamp) {
-          throw new Error('Invalid date');
-        }
       return format(new Date(timestamp), 'MMM d, h:mm a');
     } catch (error) {
       console.error(`Error formatting timestamp: ${error}`);
       return 'Invalid date';
     }
   };
+
   return (
     <>
       {/* Chat button */}
       <Button
-        className="fixed bottom-4 right-4 rounded-full p-3 h-14 w-14 shadow-lg z-50"
-        onClick={() => setIsOpen(true)}
-      >
-        <BotIcon size={24} />
-      </Button>
+  className="fixed bottom-4 right-4 rounded-full p-3 h-14 w-14 shadow-lg z-50"
+  onClick={() => setIsOpen(true)}
+>
+  <Image 
+    src="/assets/ProfessorIt.png" // Update this path to your image location
+    alt="Chat with Prof. It"
+    width={28}
+    height={28}
+    priority
+  />
+</Button>
       
       {/* Chat dialog */}
       {isOpen && (
         <Card className="fixed bottom-4 right-4 w-80 sm:w-96 h-[500px] shadow-xl flex flex-col z-50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div className="flex items-center">
-              <CardTitle className="text-md font-medium">FinanceBuddy</CardTitle>
+              <CardTitle className="text-md font-medium">Professor It</CardTitle>
               
               {/* Conversation history button */}
               <Drawer>
@@ -152,9 +191,15 @@ export function ChatInterface() {
           <ScrollArea className="flex-1 p-4">
             {!activeConversation || activeConversation.messages?.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-4">
-                <BotIcon size={40} className="mb-2 opacity-50" />
-                <p>Hi! I&aposm FinanceBuddy, your finance assistant.</p>
-                <p className="text-sm mt-1">Ask me about stocks, options, or finance concepts!</p>
+                <Image 
+  src="/assets/ProfessorIt.png" 
+  alt="Professor It" 
+  width={50} 
+  height={50} 
+  className="mb-2" 
+/>
+                <p>Hi! I&apos;m Prof. It, your virtual finance professor.</p>
+                <p className="text-sm mt-1">Ask me about data you see on Profit Prophet, stocks, options, or finance concepts!</p>
               </div>
             ) : (
               activeConversation.messages?.map((msg, i) => (
@@ -166,7 +211,50 @@ export function ChatInterface() {
                         : 'bg-muted'
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                    {msg.role === 'assistant' ? (
+                      <div className="text-sm prose prose-sm max-w-none dark:prose-invert">
+                      <ReactMarkdown
+                        components={{
+                        // Style Markdown elements - remove "node" parameter since it's not used
+                        p: ({...props}) => <p className="my-1" {...props} />,
+                        h1: ({...props}) => <h1 className="text-lg font-bold my-2" {...props} />,
+                        h2: ({...props}) => <h2 className="text-md font-bold my-2" {...props} />,
+                        h3: ({...props}) => <h3 className="text-sm font-bold my-1" {...props} />,
+                        strong: ({...props}) => <strong className="font-semibold" {...props} />,
+                        ul: ({...props}) => <ul className="list-disc pl-4 my-2" {...props} />,
+                        ol: ({...props}) => <ol className="list-decimal pl-4 my-2" {...props} />,
+                        li: ({...props}) => <li className="my-1" {...props} />,
+                        // Custom handling for stock insights badges
+                        text: ({...props}) => {
+                            /* eslint-disable react/prop-types */
+                          const text = props.children || ''; 
+                            // Detect insight indicators (🟢, 🔴, ⚪) and apply appropriate styling
+                            if (typeof text === 'string' && /^(🟢|🔴|⚪)/.test(text)) {
+                              const sentiment = text.startsWith('🟢') ? 'positive' : 
+                                              text.startsWith('🔴') ? 'negative' : 'neutral';
+                              const badgeVariant = sentiment === 'positive' ? 'default' : 
+                                                  sentiment === 'negative' ? 'destructive' : 'secondary';
+                              
+                              return (
+                                <div className="flex items-start gap-2 my-1">
+                                  <Badge variant={badgeVariant} className="mt-0.5">
+                                    {text.slice(0, 1)} {sentiment}
+                                  </Badge>
+                                  <span>{text.slice(1)}</span>
+                                </div>
+                              );
+                            }
+                            
+                            return <span>{props.children}</span>;
+                          }
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                    )}
                     <p className="text-xs opacity-50 mt-1">
                       {formatTimestamp(msg.timestamp)}
                     </p>

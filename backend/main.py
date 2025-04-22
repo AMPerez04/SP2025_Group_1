@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 from fastapi.responses import JSONResponse
 from snaptrade_client import SnapTrade
 from bson.errors import InvalidId
-from chatbot import chatbot_router
+from chatbot import chatbot_router, analyzer_router
 
 
 logging.basicConfig(
@@ -60,6 +60,7 @@ app.add_middleware(
 app.include_router(options_router)
 app.include_router(news_router)
 app.include_router(chatbot_router)
+app.include_router(analyzer_router)
 # MongoDB connection
 client = MongoClient(os.getenv("MONGO_URI"))
 db = client["stock_dashboard"]
@@ -813,12 +814,11 @@ async def reset_user_password(request_data: ResetPasswordRequest):
     return {"message": "Password has been reset successfully."}
 
 
-
-
 snaptrade = SnapTrade(
     consumer_key=os.getenv("SNAPTRADE_CONSUMER_KEY"),
     client_id=os.getenv("SNAPTRADE_CLIENT_ID"),
 )
+
 
 @app.get("/snaptrade/link-account")
 def get_link_url(user_id: str):
@@ -840,15 +840,13 @@ def get_link_url(user_id: str):
             user_id=user_id,
             user_secret=user_secret,
             custom_redirect="http://localhost:3000/dashboard?from=snaptrade",
-            connection_portal_version="v4"
+            connection_portal_version="v4",
         )
-
 
         return {"url": login_response.body}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 
 @app.get("/snaptrade/holdings")
@@ -879,9 +877,9 @@ def get_holdings(user_id: str):
 def store_user_secret(user_id: str, user_secret: str):
     """Store SnapTrade userSecret in MongoDB users collection."""
     users.update_one(
-        {"_id": ObjectId(user_id)},
-        {"$set": {"snaptrade_user_secret": user_secret}}
+        {"_id": ObjectId(user_id)}, {"$set": {"snaptrade_user_secret": user_secret}}
     )
+
 
 def retrieve_user_secret_from_db(user_id: str) -> str:
     """Retrieve SnapTrade userSecret from MongoDB."""
@@ -889,6 +887,7 @@ def retrieve_user_secret_from_db(user_id: str) -> str:
     if not user or "snaptrade_user_secret" not in user:
         raise Exception("SnapTrade user secret not found.")
     return user["snaptrade_user_secret"]
+
 
 @app.get("/snaptrade/delete-user")
 def delete_snaptrade_user(user_id: str):
@@ -898,23 +897,24 @@ def delete_snaptrade_user(user_id: str):
         )
 
         users.update_one(
-            {"_id": ObjectId(user_id)},
-            {"$unset": {"snaptrade_user_secret": ""}}
+            {"_id": ObjectId(user_id)}, {"$unset": {"snaptrade_user_secret": ""}}
         )
 
         return {
             "message": f"SnapTrade user {user_id} deleted successfully.",
-            "snaptrade_response": deleted_response.body
+            "snaptrade_response": deleted_response.body,
         }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/snaptrade/has-user-secret", response_model=bool)
 def has_user_secret(user_id: str) -> bool:
     """Return True if user has SnapTrade secret stored."""
     user = users.find_one({"_id": ObjectId(user_id)})
     return "snaptrade_user_secret" in user
+
 
 if __name__ == "__main__":
     import uvicorn
